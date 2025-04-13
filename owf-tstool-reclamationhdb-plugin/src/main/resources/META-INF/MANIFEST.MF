@@ -1,0 +1,23 @@
+Comment01: Manifest file to distribute with the
+Comment02: ReclamationHDBDataStore.jar file.
+Comment03: Maximum line length is 72 characters to avoid truncation.
+Comment04: Indent continued lines by a single space.
+Comment05: DataStore-Class is the path to the datastore class.
+Comment06: DataStoreFactory-Class is the path to the datastore factory class.
+Comment07: Command-Class1 is the path to a command class.
+Comment08: Increment the number as needed for the number of command classes.
+Comment09: Class-Path contains the dep/ folder for dependency jar files.
+manifest-Version: 1.0
+Plugin-Name: owf-tstool-reclamationhdb-plugin
+Plugin-Version: 1.0.0
+TSTool-Version: >= 15.1.0
+DataStore-Class: org.openwaterfoundation.tstool.plugin.reclamationhdb.
+ datastore.ReclamationHDBDataStore
+DataStoreFactory-Class: org.openwaterfoundation.tstool.plugin.
+ reclamationhdb.datastore.ReclamationHDBDataStoreFactory
+Command-Class1: org.openwaterfoundation.tstool.plugin.reclamationhdb.
+ commands.ReadReclamationHDB_Command
+Command-Class2: org.openwaterfoundation.tstool.plugin.reclamationhdb.
+ commands.WriteReclamationHDB_Command
+Class-Path: dep/
+

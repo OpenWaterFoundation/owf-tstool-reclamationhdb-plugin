@@ -1,0 +1,42 @@
+# Disable because are moving to FEWS PI XML
+#@enabled False
+# Test writing a 6hour ensemble of model time series to ReclamationHDB database:
+# - development database
+# - old WRITE_TO_HDB procedure
+# - model table since ensemble
+# - ensemble data from ESSC2S
+# - 6hour SQIN data
+# - SDI 101017 AAB_DELETE (do this to use the test site in the database)
+# - Write twice with different numbers to make sure old results are not just sitting
+#   in the database.  Write non-missing values because HDB convention is to
+#   NOT write missing values (not sure how re-write is handled if missing involved).
+# - Use ReadReclamationHDB() and WriteRlamationHDB() because ensembles don't work with TSIDs
+StartLog(LogFile="Results/Test_WriteReclamationHDB_Dev_6Hour_Ensemble_ESSC2S_AAB_DELETE.TSTool.log")
+RemoveFile(InputFile="Results/Test_ReclamationHDB_Dev_6Hour_Ensemble_ESSC2S_AAB_DELETE_out.dv",IfNotFound=Ignore)
+#
+# Start first pass...
+ReadNwsrfsEspTraceEnsemble(InputFile="Data\ESSC2S.ESSC2N.SQIN.06.CS",EnsembleID="ESSC2S",EnsembleName="ESSC2S")
+# First write the ensemble to the database...
+SetOutputPeriod(OutputStart="2013-04-08 12",OutputEnd="2013-04-15 12")
+WriteReclamationHDB(DataStore="hdbtest",TSList=EnsembleID,EnsembleID="ESSC2S",SiteDataTypeID=101017,NewEnsembleName="ESSCN SQIN 6 Date",EnsembleTrace="${ts:sequence_number}",EnsembleModelName="NWS CBRFC Forecast",NewEnsembleModelRunDate="2013-10-03 23:59",Agency="NWS",ValidationFlag="P",TimeZone="GMT",WriteProcedure="OLD_WRITE_TO_HDB")
+# Now read the same time series from the database using the period that was written...
+SetInputPeriod(InputStart="2013-04-08 12",InputEnd="2013-04-15 12")
+ReadReclamationHDB(DataStore="hdbtest",Interval="6Hour",SiteDataTypeID=101017,EnsembleName="ESSCN SQIN 6 Date",Alias="ESSCN-SQIN-6Hour-%z")
+#
+# Start second pass (previous values x 10)...
+ReadNwsrfsEspTraceEnsemble(InputFile="Data\ESSC2S.ESSC2N.SQIN.06.CS",EnsembleID="ESSC2S-Copy",EnsembleName="ESSC2S")
+Scale(TSList=EnsembleID,EnsembleID="ESSC2S-Copy",ScaleValue=10)
+# First write the time series to the database...
+WriteReclamationHDB(DataStore="hdbtest",TSList=EnsembleID,EnsembleID="ESSC2S-Copy",SiteDataTypeID=101017,NewEnsembleName="ESSCN SQIN 6 Date",EnsembleTrace="${ts:sequence_number}",EnsembleModelName="NWS CBRFC Forecast",NewEnsembleModelRunDate="2013-10-03 23:59",Agency="NWS",ValidationFlag="P",TimeZone="GMT",WriteProcedure="OLD_WRITE_TO_HDB")
+# Now read the same time series from the database using the period that was written...
+ReadReclamationHDB(DataStore="hdbtest",Interval="6Hour",SiteDataTypeID=101017,EnsembleName="ESSCN SQIN 6 Date",Alias="ESSCN-Copy-SQIN-6Hour-%z")
+#
+# Output 12 hours less to account for the 7 hour GMT to MST offset.
+# This ensures that previous contents in HDB don't show up in test output.
+SetOutputPeriod(OutputStart="2013-04-08 12",OutputEnd="2013-04-15 00")
+# Uncomment the following command to regenerate the expected results file.
+# WriteDateValue(OutputFile="ExpectedResults/Test_WriteReclamationHDB_Dev_6Hour_Ensemble_ESSC2S_AAB_DELETE_out.dv",TSList=AllMatchingTSID,TSID="ESSCN-Copy*")
+# Generate new output for what was read from the database...
+WriteDateValue(OutputFile="Results/Test_WriteReclamationHDB_Dev_6Hour_Ensemble_ESSC2S_AAB_DELETE_out.dv",TSList=AllMatchingTSID,TSID="ESSCN-Copy*")
+# Do regression comparison...
+CompareFiles(InputFile1="ExpectedResults\Test_WriteReclamationHDB_Dev_6Hour_Ensemble_ESSC2S_AAB_DELETE_out.dv",InputFile2="Results/Test_WriteReclamationHDB_Dev_6Hour_Ensemble_ESSC2S_AAB_DELETE_out.dv",IfDifferent=Warn)

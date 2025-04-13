@@ -1,0 +1,40 @@
+# The time change is now part of the normal test
+#@enabled False
+# Test writing a 3hour time series to ReclamationHDB database:
+#   * development database
+#   * old WRITE_TO_HDB procedure
+#   * real table
+#   * SDI 100376 (AAA_DELETE site common name)
+#   * 3hour data
+#   * Write twice with different numbers to make sure old results are not just sitting
+#     in the database.  Write non-missing values because HDB convention is to
+#     NOT write missing values (not sure how re-write is handled if missing involved).
+#   * For two writes, use TSID read once, and ReadReclamationHDB() once to exercise read.
+#   * Set the period to cross the time change
+StartLog(LogFile="Results/Test_WriteReclamationHDB_Dev_3Hour_AAADELETE_Real_TimeChange.TSTool.log")
+RemoveFile(InputFile="Results/Test_ReclamationHDB_Dev_3Hour_AAADELETE_Real_TimeChange_out.dv",IfNotFound=Ignore)
+# Make the definition of this time series match what is used in HDB so that the comparison
+# of results all matches
+#
+# Start first pass...
+SetOutputPeriod(OutputStart="2010-03-10 00",OutputEnd="2010-03-15 12")
+NewPatternTimeSeries(Alias="AAA_DELETE",NewTSID="AAA_DELETE.HDB.flow.3Hour",Description="AAA_DELETE",Units="cfs",PatternValues="55,105,125,135,755")
+# First write the time series to the database...
+WriteReclamationHDB(DataStore="hdbtest",SiteDataTypeID=100376,ValidationFlag="A",TimeZone="MST",WriteProcedure="OLD_WRITE_TO_HDB")
+# Now read the same time series from the database using the period that was written...
+SetInputPeriod(InputStart="2010-03-10 00",InputEnd="2010-03-15 12")
+ReadReclamationHDB(DataStore="hdbtest",Interval="3Hour",SiteDataTypeID=100376,Alias="FirstRead")
+#
+# Start second pass (previous values x 10)...
+NewPatternTimeSeries(Alias="AAA_DELETE",NewTSID="AAA_DELETE.HDB.flow.3Hour",Description="AAA_DELETE",Units="cfs",PatternValues="550,1050,1250,1350,7550")
+# First write the time series to the database...
+WriteReclamationHDB(DataStore="hdbtest",TSList=LastMatchingTSID,TSID="AAA_DELETE",SiteDataTypeID=100376,ValidationFlag="A",TimeZone="MST",WriteProcedure="OLD_WRITE_TO_HDB")
+# Now read the same time series from the database using the period that was written...
+ReadReclamationHDB(DataStore="hdbtest",Interval="3Hour",SiteDataTypeID=100376,Alias="SecondRead")
+#
+# Uncomment the following command to regenerate the expected results file.
+# WriteDateValue(OutputFile="ExpectedResults/Test_WriteReclamationHDB_Dev_3Hour_AAADELETE_Real_TimeChange_out.dv",TSList=LastMatchingTSID,TSID="AAA_DELETE.HDB.flow.3Hour")
+# Generate new output for what was read from the database...
+WriteDateValue(TSList=LastMatchingTSID,TSID="AAA_DELETE.HDB.flow.3Hour",OutputFile="Results/Test_WriteReclamationHDB_Dev_3Hour_AAADELETE_Real_TimeChange_out.dv")
+# Do regression comparison...
+CompareFiles(InputFile1="ExpectedResults\Test_WriteReclamationHDB_Dev_3Hour_AAADELETE_Real_TimeChange_out.dv",InputFile2="Results/Test_WriteReclamationHDB_Dev_3Hour_AAADELETE_Real_TimeChange_out.dv",IfDifferent=Warn)

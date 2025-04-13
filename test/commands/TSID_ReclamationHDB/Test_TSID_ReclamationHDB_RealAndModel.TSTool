@@ -1,0 +1,9 @@
+# Test reading from the Reclamation HDB database for real and model time series
+# This works with the ECO database (Loveland, CO)
+# Disable because needs to be updated to new TSID convention
+#@enabled False
+#@testSuite ReclamationHDB
+Real:WINDESCO.HDB.flow.Hour~ReclamationHDB-ECO
+Real:WLFRESCO.HDB.storage.Hour~ReclamationHDB-ECO
+Model:BTABESCO.HDB.flow.Hour.NWS MBRFC Forecast-MBRFC 50% Exceedance Forecast Loader-50%-2010-07-27 00:00:00~ReclamationHDB-ECO
+Model:BTABESCO.HDB.flow.Hour.NWS MBRFC Forecast-MBRFC ESP Forecast Loader-1979-2010-07-21 00:00:00~ReclamationHDB-ECO

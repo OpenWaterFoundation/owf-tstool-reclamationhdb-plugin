@@ -1,0 +1,9 @@
+#@enabled False
+# Disable because should only be testing against development database
+#
+# Test reading from a Reclamation HDB database for real and model time series
+# This works with the ECO database (Loveland, CO)
+ReadReclamationHDB(DataStore="ReclamationHDB-ECO",DataType="canal - flow",Interval="Hour",Where1="Real or Model Data;Matches;Real",Where2="Site - Common Name;Matches;WINDESCO")
+ReadReclamationHDB(DataStore="ReclamationHDB-ECO",DataType="reservoir - storage",Interval="Hour",Where1="Real or Model Data;Matches;Real",Where2="Site - Common Name;Matches;WLFRESCO")
+ReadReclamationHDB(DataStore="ReclamationHDB-ECO",DataType="canal - flow",Interval="Hour",Where1="Real or Model Data;Matches;Model",Where2="Site - Common Name;Matches;BTABESCO",Where3="Model - Name;Matches;NWS MBRFC Forecast",Where4="Model - Run Name;Matches;MBRFC 50% Exceedance Forecast Loader",Where5="Model - Hydrologic Indicator;Matches;50%")
+ReadReclamationHDB(DataStore="ReclamationHDB-ECO",DataType="canal - flow",Interval="Hour",Where1="Real or Model Data;Matches;Model",Where2="Site - Common Name;Matches;BTABESCO",Where3="Model - Name;Matches;NWS MBRFC Forecast",Where4="Model - Run Name;Matches;MBRFC ESP Forecast Loader",Where5="Model - Hydrologic Indicator;Matches;1979")

@@ -1,0 +1,84 @@
+# Test writing a Month ensemble of model time series to ReclamationHDB database:
+# - development database
+# - old WRITE_TO_HDB procedure
+# - model table since ensemble
+# - fabricated ensemble data
+# - Month interval
+# - SDI 100376 AAB_DELETE (average flow)
+# - pick a short period
+# - Write twice with different numbers to make sure old results are not just sitting
+#   in the database.  Write non-missing values because HDB convention is to
+#   NOT write missing values (not sure how re-write is handled if missing involved).
+# - Use ReadReclamationHDB() and WriteRlamationHDB() because ensembles don't work with TSIDs
+#@testSuite ReclamationHDB
+StartLog(LogFile="Results/Test_WriteReclamationHDB_Dev_Month_AAADELETE_Ensemble.TSTool.log")
+RemoveFile(InputFile="Results/Test_ReclamationHDB_Dev_Month_AAADELETE_Ensemble.dv",IfNotFound=Ignore)
+#
+#------------------------- start the first pass -------------------------------------
+SetInputPeriod(InputStart="2010-01",InputEnd="2010-10")
+SetOutputPeriod(OutputStart="2010-01",OutputEnd="2010-10")
+SetProperty(PropertyName="InputEnd2",PropertyType=DateTime,PropertyValue="2010-11")
+NewPatternTimeSeries(Alias="AAA_DELETE_TS1",NewTSID="AAA_DELETE.HDB.flow.Month[2010]",Description="AAA_DELETE",Units="cfs",PatternValues="6.5,11.5,13.5,14.5,76.5,34.5,15.5")
+NewPatternTimeSeries(Alias="AAA_DELETE_TS2",NewTSID="AAA_DELETE.HDB.flow.Month[2011]",Description="AAA_DELETE",Units="cfs",PatternValues="7.5,12.5,14.5,15.5,77.5,35.5,16.5")
+NewPatternTimeSeries(Alias="AAA_DELETE_TS3",NewTSID="AAA_DELETE.HDB.flow.Month[2012]",Description="AAA_DELETE",Units="cfs",PatternValues="8.5,13.5,15.5,16.5,78.5,34.5,17.5")
+NewPatternTimeSeries(Alias="AAA_DELETE_TS4",NewTSID="AAA_DELETE.HDB.flow.Month[2013]",Description="AAA_DELETE",Units="cfs",PatternValues="4.5,14.5,16.5,17.5,79.5,37.5,18.5")
+NewPatternTimeSeries(Alias="AAA_DELETE_TS5",NewTSID="AAA_DELETE.HDB.flow.Month[2014]",Description="AAA_DELETE",Units="cfs",PatternValues="10.5,15.5,17.5,18.5,80.5,38.5,19.5")
+NewPatternTimeSeries(Alias="AAA_DELETE_TS6",NewTSID="AAA_DELETE.HDB.flow.Month[2015]",Description="AAA_DELETE",Units="cfs",PatternValues="11.5,16.5,18.5,19.5,81.5,39.5,20.5")
+NewEnsemble(TSList=AllMatchingTSID,TSID="AAA_DELETE_TS1",NewEnsembleID="AAA_DELETE",NewEnsembleName="AAA_DELETE")
+InsertTimeSeriesIntoEnsemble(TSList=AllMatchingTSID,TSID="AAA_DELETE_TS2",EnsembleID2="AAA_DELETE")
+InsertTimeSeriesIntoEnsemble(TSList=AllMatchingTSID,TSID="AAA_DELETE_TS3",EnsembleID2="AAA_DELETE")
+InsertTimeSeriesIntoEnsemble(TSList=AllMatchingTSID,TSID="AAA_DELETE_TS4",EnsembleID2="AAA_DELETE")
+InsertTimeSeriesIntoEnsemble(TSList=AllMatchingTSID,TSID="AAA_DELETE_TS5",EnsembleID2="AAA_DELETE")
+InsertTimeSeriesIntoEnsemble(TSList=AllMatchingTSID,TSID="AAA_DELETE_TS6",EnsembleID2="AAA_DELETE")
+WriteReclamationHDB(DataStore="hdbtest",TSList=EnsembleID,EnsembleID="AAA_DELETE",SiteDataTypeID=100376,NewEnsembleName="AAA_DELETE Month Date",EnsembleTrace="%z",EnsembleModelName="NWS CBRFC Forecast",NewEnsembleModelRunDate="2013-10-02 10:11",ValidationFlag="P",TimeZone="MST",WriteProcedure="OLD_WRITE_TO_HDB",EnsembleIDProperty="HDBEnsembleIDFromWrite")
+# Now read the same time series from the database using the period that was written...
+ReadReclamationHDB(DataStore="hdbtest",Interval="Month",SiteDataTypeID=100376,EnsembleName="AAA_DELETE Month Date",OutputEnsembleID="FirstRead",Alias="AAA_DELETE-Month-%z")
+# Compare the time series read as a time series with a time series created from SQL query output.
+# - The site_datatype_id is a double in HDB rather than an int so have to format it as an integer
+ReadTableFromDataStore(DataStore="hdbtest",Sql="select * from M_MONTH, HDB_MODEL, REF_MODEL_RUN, REF_ENSEMBLE_TRACE, REF_ENSEMBLE where m_month.model_run_id = ref_model_run.model_run_id and ref_model_run.model_id = hdb_model.model_id and ref_model_run.model_run_id = ref_ensemble_trace.model_run_id and ref_ensemble_trace.ensemble_id = ref_ensemble.ensemble_id and m_month.site_datatype_id = 100376 and ref_ensemble.ensemble_id = ${HDBEnsembleIDFromWrite} and start_date_time >= to_date('${InputStart}-01','YYYY-MM-DD') and start_date_time <= to_date('${InputEnd}-01','YYYY-MM-DD') order by site_datatype_id, hydrologic_indicator, start_date_time",TableID="m_month1")
+FormatTableString(TableID="m_month1",InputColumns="site_datatype_id",Format="%.0f",OutputColumn="site_datatype_id_int",InsertBeforeColumn="start_date_time")
+TableToTimeSeries(TableID="m_month1",DateTimeColumn="start_date_time",LocationColumn="site_datatype_id_int",SequenceIDColumn="hydrologic_indicator",ValueColumn="value",Interval=Month,Units="cfs",Alias="%L-%z-TableFirstRead")
+NewEnsemble(TSList=AllMatchingTSID,TSID="*TableFirstRead",NewEnsembleID="FirstReadFromTable",NewEnsembleName="FirstReadFromTable")
+CompareTimeSeries(EnsembleID1="AAA_DELETE",EnsembleID2="FirstRead",IfDifferent=Warn)
+CompareTimeSeries(EnsembleID1="AAA_DELETE",EnsembleID2="FirstReadFromTable",IfDifferent=Warn)
+# Also check for missing because there should be none over time zone change
+CheckTimeSeries(TSList=EnsembleID,EnsembleID="FirstRead",CheckCriteria="Missing")
+CheckTimeSeries(TSList=EnsembleID,EnsembleID="FirstReadFromTable",CheckCriteria="Missing")
+#
+#------------------------- start the second pass -------------------------------------
+# Start second pass (previous values x 10)...
+NewPatternTimeSeries(Alias="AAA_DELETE_TSa",NewTSID="AAA_DELETE.HDB.flow.Month[2010]",Description="AAA_DELETE",Units="cfs",PatternValues="50.5,100.5,120.5,130.5,750.5,330.5,140.5")
+NewPatternTimeSeries(Alias="AAA_DELETE_TSb",NewTSID="AAA_DELETE.HDB.flow.Month[2011]",Description="AAA_DELETE",Units="cfs",PatternValues="51.5,101.5,121.5,131.5,751.5,331.5,141.5")
+NewPatternTimeSeries(Alias="AAA_DELETE_TSc",NewTSID="AAA_DELETE.HDB.flow.Month[2012]",Description="AAA_DELETE",Units="cfs",PatternValues="52.5,102.5,122.5,132.5,752.5,332.5,142.5")
+NewPatternTimeSeries(Alias="AAA_DELETE_TSd",NewTSID="AAA_DELETE.HDB.flow.Month[2013]",Description="AAA_DELETE",Units="cfs",PatternValues="53.5,103.5,123.5,133.5,753.5,333.5,143.5")
+NewPatternTimeSeries(Alias="AAA_DELETE_TSe",NewTSID="AAA_DELETE.HDB.flow.Month[2014]",Description="AAA_DELETE",Units="cfs",PatternValues="54.5,104.5,124.5,134.5,754.5,334.5,144.5")
+NewPatternTimeSeries(Alias="AAA_DELETE_TSf",NewTSID="AAA_DELETE.HDB.flow.Month[2015]",Description="AAA_DELETE",Units="cfs",PatternValues="55.5,105.5,125.5,135.5,755.5,335.5,145.5")
+NewEnsemble(TSList=AllMatchingTSID,TSID="AAA_DELETE_TSa",NewEnsembleID="AAA_DELETE2",NewEnsembleName="AAA_DELETE2")
+InsertTimeSeriesIntoEnsemble(TSList=AllMatchingTSID,TSID="AAA_DELETE_TSb",EnsembleID2="AAA_DELETE2")
+InsertTimeSeriesIntoEnsemble(TSList=AllMatchingTSID,TSID="AAA_DELETE_TSc",EnsembleID2="AAA_DELETE2")
+InsertTimeSeriesIntoEnsemble(TSList=AllMatchingTSID,TSID="AAA_DELETE_TSd",EnsembleID2="AAA_DELETE2")
+InsertTimeSeriesIntoEnsemble(TSList=AllMatchingTSID,TSID="AAA_DELETE_TSe",EnsembleID2="AAA_DELETE2")
+InsertTimeSeriesIntoEnsemble(TSList=AllMatchingTSID,TSID="AAA_DELETE_TSf",EnsembleID2="AAA_DELETE2")
+# First write the time series to the database...
+WriteReclamationHDB(DataStore="hdbtest",TSList=EnsembleID,EnsembleID="AAA_DELETE2",SiteDataTypeID=100376,NewEnsembleName="AAA_DELETE Month Date",EnsembleTrace="%z",EnsembleModelName="NWS CBRFC Forecast",NewEnsembleModelRunDate="2013-10-02 10:11",ValidationFlag="P",TimeZone="MST",WriteProcedure="OLD_WRITE_TO_HDB",EnsembleIDProperty="HDBEnsembleIDFromWrite")
+# Now read the same time series from the database using the period that was written...
+ReadReclamationHDB(DataStore="hdbtest",Interval="Month",SiteDataTypeID=100376,EnsembleName="AAA_DELETE Month Date",OutputEnsembleID="SecondRead",Alias="AAA_DELETE-Month-%z")
+# Compare the time series read as a time series with a time series created from SQL query output.
+# - The site_datatype_id is a double in HDB rather than an int so have to format it as an integer
+ReadTableFromDataStore(DataStore="hdbtest",Sql="select * from M_MONTH, HDB_MODEL, REF_MODEL_RUN, REF_ENSEMBLE_TRACE, REF_ENSEMBLE where m_month.model_run_id = ref_model_run.model_run_id and ref_model_run.model_id = hdb_model.model_id and ref_model_run.model_run_id = ref_ensemble_trace.model_run_id and ref_ensemble_trace.ensemble_id = ref_ensemble.ensemble_id and m_month.site_datatype_id = 100376 and ref_ensemble.ensemble_id = ${HDBEnsembleIDFromWrite} and start_date_time >= to_date('${InputStart}-01','YYYY-MM-DD') and start_date_time <= to_date('${InputEnd}-01','YYYY-MM-DD') order by site_datatype_id, hydrologic_indicator, start_date_time",TableID="m_month2")
+FormatTableString(TableID="m_month2",InputColumns="site_datatype_id",Format="%.0f",OutputColumn="site_datatype_id_int",InsertBeforeColumn="start_date_time")
+TableToTimeSeries(TableID="m_month2",DateTimeColumn="start_date_time",LocationColumn="site_datatype_id_int",SequenceIDColumn="hydrologic_indicator",ValueColumn="value",Interval=Month,Units="cfs",Alias="%L-%z-TableSecondRead")
+NewEnsemble(TSList=AllMatchingTSID,TSID="*TableSecondRead",NewEnsembleID="SecondReadFromTable",NewEnsembleName="SecondReadFromTable")
+CompareTimeSeries(EnsembleID1="AAA_DELETE2",EnsembleID2="SecondRead",IfDifferent=Warn)
+CompareTimeSeries(EnsembleID1="AAA_DELETE2",EnsembleID2="SecondReadFromTable",IfDifferent=Warn)
+# Also check for missing because there should be none over time zone change
+CheckTimeSeries(TSList=EnsembleID,EnsembleID="SecondRead",CheckCriteria="Missing")
+CheckTimeSeries(TSList=EnsembleID,EnsembleID="SecondReadFromTable",CheckCriteria="Missing")
+#------------------------- end the second pass -------------------------------------
+#
+# Uncomment the following command to regenerate the expected results file.
+# WriteDateValue(TSList=EnsembleID,EnsembleID="FirstRead",OutputFile="ExpectedResults/Test_WriteReclamationHDB_Dev_Month_AAADELETE_Ensemble_out.dv")
+# Generate new output for what was read from the database...
+WriteDateValue(TSList=EnsembleID,EnsembleID="FirstRead",OutputFile="Results/Test_WriteReclamationHDB_Dev_Month_AAADELETE_Ensemble_out.dv")
+# Do regression comparison...
+CompareFiles(InputFile1="ExpectedResults\Test_WriteReclamationHDB_Dev_Month_AAADELETE_Ensemble_out.dv",InputFile2="Results/Test_WriteReclamationHDB_Dev_Month_AAADELETE_Ensemble_out.dv",IfDifferent=Warn)

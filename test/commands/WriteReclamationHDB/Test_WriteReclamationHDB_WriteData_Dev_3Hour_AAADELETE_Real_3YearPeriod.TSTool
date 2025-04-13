@@ -1,0 +1,44 @@
+# Disable because takes a long time to run - need to update to be similar to 1YearPeriod if it is used
+#@enabled False
+# Test writing a 3hour time series to ReclamationHDB database:
+# - development database
+# - new WRITE_MODEL_DATA procedure
+# - real table
+# - SDI 100376 (AAA_DELETE site common name)
+# - 3hour data
+# - Write twice with different numbers to make sure old results are not just sitting
+#   in the database.  Write non-missing values because HDB convention is to
+#   NOT write missing values (not sure how re-write is handled if missing involved).
+# - For two writes, use TSID read once, and ReadReclamationHDB() once to exercise read.
+# - Write 3 year of data to diagnose issue writing long period
+#@testSuite ReclamationHDB
+StartLog(LogFile="Results/Test_WriteReclamationHDB_WriteData_Dev_3Hour_AAADELETE_Real_3YearPeriod.TSTool.log")
+RemoveFile(InputFile="Results/Test_ReclamationHDB_WriteData_Dev_3Hour_AAADELETE_Real_3YearPeriod_out.dv",IfNotFound=Ignore)
+# Make the definition of this time series match what is used in HDB so that the comparison
+# of results all matches
+#
+# Start first pass...
+SetOutputPeriod(OutputStart="2010-01-01 00",OutputEnd="2013-01-01 00")
+NewPatternTimeSeries(Alias="AAA_DELETE1",NewTSID="AAA_DELETE.HDB.flow.3Hour",Description="AAA_DELETE1",Units="cfs",PatternValues="5500,10500,12500,13500,75500")
+# First write the time series to the database...
+WriteReclamationHDB(DataStore="hdbtest",SiteDataTypeID=100376,Agency="USBR",ValidationFlag="A",TimeZone="MST",WriteProcedure="WRITE_DATA")
+# Now read the same time series from the database using the period that was written...
+SetInputPeriod(InputStart="2010-01-01 00",InputEnd="2013-01-01 00")
+ReadReclamationHDB(DataStore="hdbtest",Interval="3Hour",NHourIntervalOffset=0,SiteDataTypeID=100376,Alias="FirstRead")
+#
+# Start second pass (previous values x 10)...
+NewPatternTimeSeries(Alias="AAA_DELETE2",NewTSID="AAA_DELETE.HDB.flow.3Hour",Description="AAA_DELETE2",Units="cfs",PatternValues="55000,105000,125000,135000,755000")
+# First write the time series to the database...
+WriteReclamationHDB(DataStore="hdbtest",TSList=LastMatchingTSID,TSID="AAA_DELETE2",SiteDataTypeID=100376,Agency="USBR",ValidationFlag="A",TimeZone="MST",WriteProcedure="WRITE_DATA")
+# Now read the same time series from the database using the period that was written...
+ReadReclamationHDB(DataStore="hdbtest",Interval="3Hour",NHourIntervalOffset=0,SiteDataTypeID=100376,Alias="SecondRead")
+#
+# Uncomment the following command to regenerate the expected results file.
+# WriteDateValue(TSList=LastMatchingTSID,TSID="AAA_DELETE.HDB.flow.3Hour",OutputFile="ExpectedResults/Test_WriteReclamationHDB_WriteData_Dev_3Hour_AAADELETE_Real_3YearPeriod_out.dv")
+# Generate new output for what was read from the database...
+WriteDateValue(TSList=LastMatchingTSID,TSID="AAA_DELETE.HDB.flow.3Hour",OutputFile="Results/Test_WriteReclamationHDB_WriteData_Dev_3Hour_AAADELETE_Real_3YearPeriod_out.dv")
+# Do regression comparison.  Compare time series to make sure nothing is missing and also compare
+# files for completeness.
+CompareTimeSeries(TSID1="AAA_DELETE1",TSID2="FirstRead",Precision=4,WarnIfDifferent=True)
+CompareTimeSeries(TSID1="AAA_DELETE2",TSID2="SecondRead",Precision=4,WarnIfDifferent=True)
+CompareFiles(InputFile1="ExpectedResults\Test_WriteReclamationHDB_WriteData_Dev_3Hour_AAADELETE_Real_3YearPeriod_out.dv",InputFile2="Results/Test_WriteReclamationHDB_WriteData_Dev_3Hour_AAADELETE_Real_3YearPeriod_out.dv",IfDifferent=Warn)

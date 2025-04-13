@@ -1,0 +1,21 @@
+#@enabled False
+# Disable because should only be testing against development database
+#
+# Test reading an hour time series from ReclamationHDB database real table by specifying name, etc.
+# The AAA_DELETE location hourly data are read
+#@testSuite ReclamationHDB
+StartLog(LogFile="Results/Test_ReadReclamationHDB_Hour_AAADELETE_Real_Name.TSTool.log")
+RemoveFile(InputFile="Results/Test_ReclamationHDB_Hour_AAADELETE_Real_Name_out.dv",IfNotFound=Ignore)
+# Make the definition of this time series match what is used in HDB so that the comparison
+# of results all matches
+NewPatternTimeSeries(Alias="AAA_DELETE",NewTSID="Real:AAA_DELETE.HDB.flow.Hour",Description="Real:AAA_DELETE",SetStart="2010-01-01 00",SetEnd="2010-01-03 12",Units="cfs",PatternValues="5,10,12,13,75")
+# First write the time series to the database...
+WriteReclamationHDB(DataStore="hdbtest",SiteCommonName="AAA_DELETE",DataTypeCommonName="flow",ValidationFlag="A")
+# Uncomment the following command to regenerate the expected results file.
+# WriteDateValue(OutputFile="ExpectedResults\Test_ReadReclamationHDB_Hour_AAADELETE_Real_Name_out.dv")
+# Now read the same time series from the database using the period that was written...
+ReadReclamationHDB(DataStore="hdbtest",DataType="stream gage - flow",Interval="Hour",Where1="Site - Common Name;Matches;AAA_DELETE",Alias="%L-%T")
+# Generate new output for what was read from the database...
+WriteDateValue(OutputFile="Results/Test_ReadReclamationHDB_Hour_AAADELETE_Real_Name_out.dv",OutputStart="2010-01-01 00",OutputEnd="2010-01-03 12",TSList=LastMatchingTSID,TSID="Real:AAA_DELETE.HDB.flow.Hour")
+# Do regression comparison (allow 4 differences due to header differences)...
+CompareFiles(InputFile1="ExpectedResults\Test_ReadReclamationHDB_Hour_AAADELETE_Real_Name_out.dv",InputFile2="Results/Test_ReadReclamationHDB_Hour_AAADELETE_Real_Name_out.dv",AllowedDiff="4",IfDifferent=Warn)

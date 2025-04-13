@@ -1,0 +1,26 @@
+# Test writing a 24hour time series to ReclamationHDB database:
+#   - Test case where trying to write 24Hour time series - not supported because HDB HOUR tables are not designed for that
+#   - development database
+#   - old WRITE_TO_HDB procedure
+#   - real HOUR table
+#   - SDI 100376 (AAA_DELETE site common name)
+#   - 24hour data - not supported by HDB
+#   - overlap daylight savings change to confirm handling
+#   - Write twice with different numbers to make sure old results are not just sitting
+#     in the database.  Write non-missing values because HDB convention is to
+#     NOT write missing values (not sure how re-write is handled if missing involved).
+#   - For two writes, use TSID read once, and ReadReclamationHDB() once to exercise read.
+#   - TO EXAMINE tests, look at first 3 time series
+#@expectedStatus Failure
+#@testSuite ReclamationHDB
+StartLog(LogFile="Results/Test_WriteReclamationHDB_Dev_24Hour_AAADELETE_Real_NoWrite.TSTool.log")
+RemoveFile(InputFile="Results/Test_ReclamationHDB_Dev_24Hour_AAADELETE_Real_NoWrite_out.dv",IfNotFound=Ignore)
+SetOutputPeriod(OutputStart="2010-03-10 00",OutputEnd="2010-03-15 12")
+SetInputPeriod(InputStart="2010-03-10 00",InputEnd="2010-03-15 12")
+SetProperty(PropertyName="CompareStart",PropertyType=DateTime,PropertyValue="2010-03-10 03")
+SetProperty(PropertyName="CompareEnd",PropertyType=DateTime,PropertyValue="2010-03-15 12")
+#------------------------- start the first pass -------------------------------------
+# The following removes old data to make sure loads from other tests don't impact this test - DOES NOT SEEM TO WORK
+# RunSql(DataStore="hdbtest",SqlFile="Test_WriteReclamationHDB_Dev_24Hour_AAADELETE_Real_NoWrite.sql")
+NewPatternTimeSeries(Alias="AAA_DELETE",NewTSID="AAA_DELETE.HDB.flow.24Hour",Description="AAA_DELETE",Units="cfs",PatternValues="55,105,125,135,755")
+WriteReclamationHDB(DataStore="hdbtest",SiteDataTypeID=100376,ValidationFlag="A",TimeZone="MST",WriteProcedure="OLD_WRITE_TO_HDB")

@@ -1,0 +1,62 @@
+# Test writing a 1hour ensemble of model time series to ReclamationHDB database:
+# - development database
+# - old WRITE_TO_HDB procedure
+# - source data is from FEWS PI XML ensemble
+# - model table since ensemble
+# - ensemble data from ESSC2S FEWS PI XML file
+# - 1hour data
+# - SDI 101017 AAB_DELETE (do this to use the test site an instantaneous flow data type in the database)
+# - pick a short period because writing hourly data is slow, but has to go through 2013-08-05 to show different values in trace
+# - Write twice with different numbers to make sure old results are not just sitting
+#   in the database.  Write non-missing values because HDB convention is to
+#   NOT write missing values (not sure how re-write is handled if missing involved).
+# - Use ReadReclamationHDB() and WriteRlamationHDB() because ensembles don't work with TSIDs
+#@testSuite ReclamationHDB
+# Disable test since WRITE_TO_HDB is no longer the focus and have limited resources to troubleshoot failing tests.
+#@enabled False
+StartLog(LogFile="Results/Test_WriteReclamationHDB_Dev_1Hour_Ensemble_ESSC2S_AAB_DELETE.TSTool.log")
+RemoveFile(InputFile="Results/Test_ReclamationHDB_Dev_1Hour_Ensemble_ESSC2S_AAB_DELETE_out.dv",IfNotFound=Ignore)
+#
+# Period aligns with the test data but use shorter period because HDB loader is very slow
+# SetOutputPeriod(OutputStart="2016-01-19 10",OutputEnd="2017-01-19 10")
+# SetInputPeriod(InputStart="2016-01-19 10",InputEnd="2016-03-15 10")
+SetOutputPeriod(OutputStart="2016-01-19 10",OutputEnd="2016-03-15 10")
+SetInputPeriod(InputStart="2016-01-19 10",InputEnd="2016-03-15 10")
+SetProperty(PropertyName="FirstLoad",PropertyType=String,PropertyValue="False")
+#------------------------- start the first pass -------------------------------------
+ReadDelftFewsPiXml(InputFile="Data\ESSC2N.ECAO.ESP.traces.fullyear.xml",TimeZone="MST",EnsembleID="ESSC2S",EnsembleName="ESSC2S")
+# From previous test using NWSRFS CS file
+# WriteReclamationHDB(DataStore="hdbtest",TSList=EnsembleID,EnsembleID="ESSC2S",SiteCommonName="BTABESCO",DataTypeCommonName="flow",SiteDataTypeID=101017,NewEnsembleName="ESSCN SQIN 1 Date",EnsembleTrace="${ts:sequence_number}",EnsembleModelName="NWS CBRFC Forecast",NewEnsembleModelRunDate="2013-10-02 10:11",Agency="NWS",ValidationFlag="P",TimeZone="MST",WriteProcedure="OLD_WRITE_TO_HDB")
+# The new run date does not work - TSTool does not create that so write new data to old run date for testing
+# WriteReclamationHDB(DataStore="hdbtest",TSList=EnsembleID,EnsembleID="ESSC2S",SiteCommonName="BTABESCO",DataTypeCommonName="flow",SiteDataTypeID=101017,NewEnsembleName="ESSCN SQIN 1 Date",EnsembleTrace="${ts:ensembleMemberIndex}",EnsembleModelName="NWS CBRFC Forecast",NewEnsembleModelRunDate="2016-01-27 05:00",Agency="NWS",ValidationFlag="P",TimeZone="MST",WriteProcedure="OLD_WRITE_TO_HDB")
+# Use NewEnsembleName the first time it is written
+# WriteReclamationHDB(DataStore="hdbtest",TSList=EnsembleID,EnsembleID="ESSC2S",SiteCommonName="BTABESCO",DataTypeCommonName="flow",SiteDataTypeID=101017,NewEnsembleName="ESSCN SQIN 1 2016-02-27",EnsembleTrace="${ts:ensembleMemberIndex}",EnsembleModelName="NWS CBRFC Forecast",NewEnsembleModelRunDate="2016-01-27 05:00",Agency="NWS",ValidationFlag="P",TimeZone="MST",WriteProcedure="OLD_WRITE_TO_HDB")
+If(Name="FirstLoad",Condition="${FirstLoad} == True")
+WriteReclamationHDB(DataStore="hdbtest",TSList=EnsembleID,EnsembleID="ESSC2S",SiteCommonName="BTABESCO",DataTypeCommonName="flow",SiteDataTypeID=101017,NewEnsembleName="CHPS/FEWS ESP - ${ts:stationName} ${ts:forecastDate}",EnsembleTrace="${ts:ensembleMemberIndex}",EnsembleModelName="CHPS/FEWS Forecast ESP",NewEnsembleModelRunDate="${ts:forecastDate}",Agency="USBR",ValidationFlag="P",TimeZone="MST",WriteProcedure="OLD_WRITE_TO_HDB")
+EndIf(Name="FirstLoad")
+If(Name="FirstLoad",Condition="${FirstLoad} == False")
+WriteReclamationHDB(DataStore="hdbtest",TSList=EnsembleID,EnsembleID="ESSC2S",SiteCommonName="BTABESCO",DataTypeCommonName="flow",SiteDataTypeID=101017,EnsembleName="CHPS/FEWS ESP - ESSC2 - BIG THOMPSON RIVER BELOW LAKE ESTES, CO. (BTBLESCO) 2016-01-27 05:00:00 MST",EnsembleTrace="${ts:ensembleMemberIndex}",EnsembleModelName="CHPS/FEWS Forecast ESP",NewEnsembleModelRunDate="${ts:forecastDate}",Agency="USBR",ValidationFlag="P",TimeZone="MST",WriteProcedure="OLD_WRITE_TO_HDB")
+EndIf(Name="FirstLoad")
+# Now read the same time series from the database using the period that was written...
+ReadReclamationHDB(DataStore="hdbtest",Interval="Hour",SiteDataTypeID=101017,EnsembleName="CHPS/FEWS ESP - ESSC2 - BIG THOMPSON RIVER BELOW LAKE ESTES, CO. (BTBLESCO) 2016-01-27 05:00:00 MST",OutputEnsembleID="FirstRead",Alias="ESSCN-SQIN-1Hour-%z")
+CompareTimeSeries(EnsembleID1="ESSC2S",EnsembleID2="FirstRead",WarnIfDifferent=True)
+#
+# Start second pass (previous values x 10)...
+ReadDelftFewsPiXml(InputFile="Data\ESSC2N.ECAO.ESP.traces.fullyear.xml",TimeZone="MST",EnsembleID="ESSC2S_Copy",EnsembleName="ESSC2S_Copy")
+Scale(TSList=EnsembleID,EnsembleID="ESSC2S_Copy",ScaleValue=10)
+If(Name="FirstLoad",Condition="${FirstLoad} == True")
+WriteReclamationHDB(DataStore="hdbtest",TSList=EnsembleID,EnsembleID="ESSC2S_Copy",SiteCommonName="BTABESCO",DataTypeCommonName="flow",SiteDataTypeID=101017,NewEnsembleName="CHPS/FEWS ESP - ${ts:stationName} ${ts:forecastDate}",EnsembleTrace="${ts:ensembleMemberIndex}",EnsembleModelName="CHPS/FEWS Forecast ESP",NewEnsembleModelRunDate="${ts:forecastDate}",Agency="USBR",ValidationFlag="P",TimeZone="MST",WriteProcedure="OLD_WRITE_TO_HDB")
+EndIf(Name="FirstLoad")
+If(Name="FirstLoad",Condition="${FirstLoad} == False")
+WriteReclamationHDB(DataStore="hdbtest",TSList=EnsembleID,EnsembleID="ESSC2S_Copy",SiteCommonName="BTABESCO",DataTypeCommonName="flow",SiteDataTypeID=101017,EnsembleName="CHPS/FEWS ESP - ESSC2 - BIG THOMPSON RIVER BELOW LAKE ESTES, CO. (BTBLESCO) 2016-01-27 05:00:00 MST",EnsembleTrace="${ts:ensembleMemberIndex}",EnsembleModelName="CHPS/FEWS Forecast ESP",NewEnsembleModelRunDate="${ts:forecastDate}",Agency="USBR",ValidationFlag="P",TimeZone="MST",WriteProcedure="OLD_WRITE_TO_HDB")
+EndIf(Name="FirstLoad")
+# Now read the same time series from the database using the period that was written...
+ReadReclamationHDB(DataStore="hdbtest",Interval="Hour",SiteDataTypeID=101017,EnsembleName="CHPS/FEWS ESP - ESSC2 - BIG THOMPSON RIVER BELOW LAKE ESTES, CO. (BTBLESCO) 2016-01-27 05:00:00 MST",OutputEnsembleID="SecondRead",Alias="ESSCN-SQIN-1Hour-%z")
+CompareTimeSeries(EnsembleID1="ESSC2S_Copy",EnsembleID2="SecondRead",WarnIfDifferent=True)
+#
+# Uncomment the following command to regenerate the expected results file.
+# WriteDateValue(TSList=EnsembleID,EnsembleID="FirstRead",OutputFile="ExpectedResults/Test_WriteReclamationHDB_Dev_1Hour_Ensemble_ESSC2S_AAB_DELETE_out.dv")
+# Generate new output for what was read from the database...
+WriteDateValue(TSList=EnsembleID,EnsembleID="FirstRead",OutputFile="Results/Test_WriteReclamationHDB_Dev_1Hour_Ensemble_ESSC2S_AAB_DELETE_out.dv")
+# Do regression comparison...
+CompareFiles(InputFile1="ExpectedResults\Test_WriteReclamationHDB_Dev_1Hour_Ensemble_ESSC2S_AAB_DELETE_out.dv",InputFile2="Results/Test_WriteReclamationHDB_Dev_1Hour_Ensemble_ESSC2S_AAB_DELETE_out.dv",IfDifferent=Warn)

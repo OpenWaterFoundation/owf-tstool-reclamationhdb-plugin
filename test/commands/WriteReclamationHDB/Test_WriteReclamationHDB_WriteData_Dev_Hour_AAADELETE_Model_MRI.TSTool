@@ -1,0 +1,60 @@
+# Test writing a 1hour time series to ReclamationHDB database:
+#   - development database
+#   - new WRITE_MODEL_DATA procedure
+#   - model table
+#   - use MRI 167 (not model name)
+#   - SDI 100376 (site common name AAA_DELETE)
+#   - hour data - note that HDB uses end_date_time for end of interval but write routines key off of start_date_time
+#   - Write twice with different numbers to make sure old results are not just sitting
+#     in the database.  Write non-missing values because HDB convention is to
+#     NOT write missing values (not sure how re-write is handled if missing involved).
+#   - For two writes, use TSID read once, and ReadReclamationHDB() once to exercise read.
+#   - TO EXAMINE tests, look at first 3 time series
+#@testSuite ReclamationHDB
+StartLog(LogFile="Results/Test_WriteReclamationHDB_WriteData_Dev_Hour_AAADELETE_Model_MRI.TSTool.log")
+RemoveFile(InputFile="Results/Test_ReclamationHDB_WriteData_Dev_Hour_AAADELETE_Model_MRI_out.dv",IfNotFound=Ignore)
+SetOutputPeriod(OutputStart="2010-03-10 00",OutputEnd="2010-03-15 12")
+SetInputPeriod(InputStart="2010-03-10 00",InputEnd="2010-03-15 12")
+#------------------------- start the first pass -------------------------------------
+NewPatternTimeSeries(Alias="AAA_DELETE",NewTSID="AAA_DELETE.HDB.flow.Hour",Description="AAA_DELETE",Units="cfs",PatternValues="700,1200,1400,1500,7700")
+# First write the time series to the database...
+WriteReclamationHDB(DataStore="hdbtest",SiteCommonName="AAA_DELETE",DataTypeCommonName="flow",SiteDataTypeID=100376,ModelRunID=167,Agency="USBR",ValidationFlag="A",TimeZone="MST",WriteProcedure="WRITE_DATA")
+# Now read the same time series from the database using the period that was written...
+ReadTimeSeries(TSID="diversion:100376-167.HDB.flow.Hour.AAA_DELETE~hdbtest",Alias="FirstRead",IfNotFound=Warn)
+# Compare the time series read as a time series with a time series created from SQL query output:
+# - allow 1 difference due to daylight saving gap
+ReadTableFromDataStore(DataStore="hdbtest",Sql="select * from M_HOUR where site_datatype_id = 100376 and model_run_id = 167 and end_date_time >= to_date('${InputStart}','YYYY-MM-DD HH24') and end_date_time <= to_date('${InputEnd}','YYYY-MM-DD HH24') order by start_date_time",TableID="m_hour1")
+TableToTimeSeries(TableID="m_hour1",DateTimeColumn="end_date_time",LocationID="100376",ValueColumn="value",Interval=Hour,Units="cfs",Alias="FirstReadFromTable")
+CompareTimeSeries(TSID1="AAA_DELETE",TSID2="FirstRead",AllowedDiff="1",IfDifferent=Warn)
+CompareTimeSeries(TSID1="FirstRead",TSID2="FirstReadFromTable",IfDifferent=Warn)
+# Also check for missing because there should be none over time zone change:
+# - actually, daylight saving time gap causes issue so comment out
+# CheckTimeSeries(TSList=AllMatchingTSID,TSID="FirstRead",CheckCriteria="Missing")
+# CheckTimeSeries(TSList=AllMatchingTSID,TSID="FirstReadFromTable",CheckCriteria="Missing")
+#------------------------- end the first pass -------------------------------------
+#
+#------------------------- start the second pass -------------------------------------
+# Start second pass (previous values x 10)...
+NewPatternTimeSeries(Alias="AAA_DELETE",NewTSID="AAA_DELETE.HDB.flow.Hour",Description="AAA_DELETE",Units="cfs",PatternValues="70000,30000,32000,33000,95000")
+# First write the time series to the database...
+WriteReclamationHDB(DataStore="hdbtest",TSList=LastMatchingTSID,TSID="AAA_DELETE",SiteCommonName="AAA_DELETE",DataTypeCommonName="flow",SiteDataTypeID=100376,ModelRunID=167,Agency="USBR",ValidationFlag="A",TimeZone="MST",WriteProcedure="WRITE_DATA")
+# Now read the same time series from the database using the period that was written...
+ReadReclamationHDB(DataStore="hdbtest",Interval="Hour",SiteCommonName="AAA_DELETE",DataTypeCommonName="flow",SiteDataTypeID=100376,ModelRunID=167,Alias="SecondRead")
+# Compare the time series read as a time series with a time series created from SQL query output:
+# - allow 1 difference due to daylight saving gap
+ReadTableFromDataStore(DataStore="hdbtest",Sql="select * from M_HOUR where site_datatype_id = 100376 and model_run_id = 167 and end_date_time >= to_date('${InputStart}','YYYY-MM-DD HH24') and end_date_time <= to_date('${InputEnd}','YYYY-MM-DD HH24') order by start_date_time",TableID="m_hour2")
+TableToTimeSeries(TableID="m_hour2",DateTimeColumn="end_date_time",LocationID="100376",ValueColumn="value",Interval=Hour,Units="cfs",Alias="SecondReadFromTable")
+CompareTimeSeries(TSID1="AAA_DELETE",TSID2="SecondRead",AllowedDiff="1",IfDifferent=Warn)
+CompareTimeSeries(TSID1="SecondRead",TSID2="SecondReadFromTable",IfDifferent=Warn)
+# Also check for missing because there should be none over time zone change:
+# - actually, daylight saving time gap causes issue so comment out
+# CheckTimeSeries(TSList=AllMatchingTSID,TSID="SecondRead",CheckCriteria="Missing")
+# CheckTimeSeries(TSList=AllMatchingTSID,TSID="SecondReadFromTable",CheckCriteria="Missing")
+#------------------------- end the second pass -------------------------------------
+#
+# Uncomment the following command to regenerate the expected results file.
+# WriteDateValue(TSList=LastMatchingTSID,TSID="FirstRead",OutputFile="ExpectedResults/Test_WriteReclamationHDB_WriteData_Dev_Hour_AAADELETE_Model_MRI_out.dv")
+# Generate new output for what was read from the database...
+WriteDateValue(TSList=LastMatchingTSID,TSID="FirstRead",OutputFile="Results/Test_WriteReclamationHDB_WriteData_Dev_Hour_AAADELETE_Model_MRI_out.dv")
+# Do regression comparison...
+CompareFiles(InputFile1="ExpectedResults\Test_WriteReclamationHDB_WriteData_Dev_Hour_AAADELETE_Model_MRI_out.dv",InputFile2="Results/Test_WriteReclamationHDB_WriteData_Dev_Hour_AAADELETE_Model_MRI_out.dv",IfDifferent=Warn)

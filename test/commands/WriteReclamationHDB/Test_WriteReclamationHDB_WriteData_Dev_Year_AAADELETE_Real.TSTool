@@ -1,0 +1,56 @@
+# Test writing a year time series to ReclamationHDB database:
+#   - development database
+#   - new WRITE_REAL_DATA procedure
+#   - real table
+#   - SDI 100376 (site common name AAA_DELETE)
+#   - year data - note that HDB uses start_date_time for year (end is day and month 1 of next year)
+#   - Write twice with different numbers to make sure old results are not just sitting
+#     in the database.  Write non-missing values because HDB convention is to
+#     NOT write missing values (not sure how re-write is handled if missing involved).
+#   - For two writes, use TSID read once, and ReadReclamationHDB() once to exercise read.
+#   - TO EXAMINE tests, look at first 3 time series around the leap year change, similar for last 3 time series
+#@testSuite ReclamationHDB
+StartLog(LogFile="Results/Test_WriteReclamationHDB_WriteData_Dev_Year_AAADELETE_Real.TSTool.log")
+RemoveFile(InputFile="Results/Test_ReclamationHDB_WriteData_Dev_Year_AAADELETE_Real_out.dv",IfNotFound=Ignore)
+#
+#------------------------- start the first pass -------------------------------------
+SetInputPeriod(InputStart="2010",InputEnd="2014")
+SetOutputPeriod(OutputStart="2010",OutputEnd="2014")
+SetProperty(PropertyName="InputEnd2",PropertyType=DateTime,PropertyValue="2015")
+NewPatternTimeSeries(Alias="AAA_DELETE",NewTSID="AAA_DELETE.HDB.flow.Year",Description="AAA_DELETE",Units="cfs",PatternValues="500,1000,1200,1300,7500")
+# First write the time series to the database...
+WriteReclamationHDB(DataStore="hdbtest",SiteCommonName="AAA_DELETE",DataTypeCommonName="flow",SiteDataTypeID=100376,Agency="USBR",ValidationFlag="A",TimeZone="MST",WriteProcedure="WRITE_DATA")
+# Now read the same time series from the database using the period that was written...
+ReadTimeSeries(TSID="diversion:100376.HDB.flow.Year.AAA_DELETE~hdbtest",Alias="FirstRead",IfNotFound=Warn)
+# Compare the time series read as a time series with a time series created from SQL query output.
+ReadTableFromDataStore(DataStore="hdbtest",Sql="select * from R_YEAR where site_datatype_id = 100376 and start_date_time >= to_date('${InputStart}-01-01','YYYY-MM-DD') and start_date_time <= to_date('${InputEnd2}-01-01','YYYY-MM-DD') order by start_date_time",TableID="r_year1")
+TableToTimeSeries(TableID="r_year1",DateTimeColumn="start_date_time",LocationID="100376",ValueColumn="value",Interval=Year,Units="cfs",Alias="FirstReadFromTable")
+CompareTimeSeries(TSID1="AAA_DELETE",TSID2="FirstRead",IfDifferent=Warn)
+CompareTimeSeries(TSID1="FirstRead",TSID2="FirstReadFromTable",IfDifferent=Warn)
+# Also check for missing because there should be none over time zone change
+CheckTimeSeries(TSList=AllMatchingTSID,TSID="FirstRead",CheckCriteria="Missing")
+CheckTimeSeries(TSList=AllMatchingTSID,TSID="FirstReadFromTable",CheckCriteria="Missing")
+#
+#------------------------- start the second pass -------------------------------------
+# Start second pass (previous values x 10)...
+NewPatternTimeSeries(Alias="AAA_DELETE",NewTSID="AAA_DELETE.HDB.flow.Year",Description="AAA_DELETE",Units="cfs",PatternValues="50000,10000,12000,13000,75000")
+# First write the time series to the database...
+WriteReclamationHDB(DataStore="hdbtest",TSList=LastMatchingTSID,TSID="AAA_DELETE",SiteCommonName="AAA_DELETE",DataTypeCommonName="flow",SiteDataTypeID=100376,Agency="USBR",ValidationFlag="A",TimeZone="MST",WriteProcedure="WRITE_DATA")
+# Now read the same time series from the database using the period that was written...
+ReadReclamationHDB(DataStore="hdbtest",Interval="Year",SiteCommonName="AAA_DELETE",DataTypeCommonName="flow",SiteDataTypeID=100376,Alias="SecondRead")
+# Compare the time series read as a time series with a time series created from SQL query output.
+ReadTableFromDataStore(DataStore="hdbtest",Sql="select * from R_YEAR where site_datatype_id = 100376 and start_date_time >= to_date('${InputStart}-01-01','YYYY-MM-DD') and start_date_time <= to_date('${InputEnd2}-01-01','YYYY-MM-DD') order by start_date_time",TableID="r_year2")
+TableToTimeSeries(TableID="r_year2",DateTimeColumn="start_date_time",LocationID="100376",ValueColumn="value",Interval=Year,Units="cfs",Alias="SecondReadFromTable")
+CompareTimeSeries(TSID1="AAA_DELETE",TSID2="SecondRead",IfDifferent=Warn)
+CompareTimeSeries(TSID1="SecondRead",TSID2="SecondReadFromTable",IfDifferent=Warn)
+# Also check for missing because there should be none over time zone change
+CheckTimeSeries(TSList=AllMatchingTSID,TSID="SecondRead",CheckCriteria="Missing")
+CheckTimeSeries(TSList=AllMatchingTSID,TSID="SecondReadFromTable",CheckCriteria="Missing")
+#------------------------- end the second pass -------------------------------------
+#
+# Uncomment the following command to regenerate the expected results file.
+# WriteDateValue(TSList=LastMatchingTSID,TSID="SecondRead",OutputFile="ExpectedResults/Test_WriteReclamationHDB_WriteData_Dev_Year_AAADELETE_Real_out.dv")
+# Generate new output for what was read from the database...
+WriteDateValue(TSList=LastMatchingTSID,TSID="SecondRead",OutputFile="Results/Test_WriteReclamationHDB_WriteData_Dev_Year_AAADELETE_Real_out.dv")
+# Do regression comparison...
+CompareFiles(InputFile1="ExpectedResults\Test_WriteReclamationHDB_WriteData_Dev_Year_AAADELETE_Real_out.dv",InputFile2="Results/Test_WriteReclamationHDB_WriteData_Dev_Year_AAADELETE_Real_out.dv",IfDifferent=Warn)

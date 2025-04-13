@@ -1,0 +1,3 @@
+# Test to read instanataneous (15-minute) gate height data
+#@testSuite ReclamationHDB
+diversion:100227.HDB.inst gage height.Irregular.ADATUNCO~hdbtest

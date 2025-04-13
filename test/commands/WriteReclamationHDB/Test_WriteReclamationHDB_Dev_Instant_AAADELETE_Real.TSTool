@@ -1,0 +1,63 @@
+# Test writing an instantaneous time series to ReclamationHDB
+#   - development database
+#   - old WRITE_TO_HDB procedure
+#   - real table
+#   - SDI 100380
+#   - instantaneous data (treated as irregular) - HDB instantaneous has same start and end date/time in data table
+#   - Write twice with different numbers to make sure old results are not just sitting
+#     in the database.  Write non-missing values because HDB convention is to
+#     NOT write missing values (not sure how re-write is handled if missing involved).
+#   - For two writes, use TSID read once, and ReadReclamationHDB() once to exercise read.
+#   - Set the period to cross the time change, which occurs at 2010-03-14 02
+#   - TO EXAMINE tests, look at first 3 time series around the leap year change, similar for last 3 time series
+#@testSuite ReclamationHDB
+StartLog(LogFile="Results/Test_WriteReclamationHDB_Dev_Instant_AAADELETE_Real.TSTool.log")
+RemoveFile(InputFile="Results/Test_ReclamationHDB_Dev_Instant_AAADELETE_Real_out.dv",IfNotFound=Ignore)
+#------------------------- start the first pass -------------------------------------
+SetInputPeriod(InputStart="2010-03-14 00:00",InputEnd="2010-03-15 12:00")
+SetOutputPeriod(OutputStart="2010-03-14 00:00",OutputEnd="2010-03-15 12:00")
+NewPatternTimeSeries(Alias="AAA_DELETE",NewTSID="AAA_DELETE.HDB.flow.Irregular",IrregularInterval=15Minute,Description="AAA_DELETE",Units="cfs",PatternValues="5,10,12,13,75")
+# First write the time series to the database...
+SetDebugLevel(LogFileLevel=1)
+#WriteReclamationHDB(DataStore="hdbtest",TSList=LastMatchingTSID,TSID="AAA_DELETE",SiteCommonName="AAA_DELETE",DataTypeCommonName="inst flow",SiteDataTypeID=100380,ValidationFlag="A",TimeZone="MST",WriteProcedure="OLD_WRITE_TO_HDB")
+WriteReclamationHDB(DataStore="hdbtest",TSList=LastMatchingTSID,TSID="AAA_DELETE",SiteCommonName="AAA_DELETE",DataTypeCommonName="inst flow",SiteDataTypeID=100380,Agency="USBR",ValidationFlag="A",TimeZone="MST",WriteProcedure="WRITE_DATA")
+SetDebugLevel(ScreenLevel=0,LogFileLevel=0)
+# Now read the same time series from the database using the period that was written...
+ReadTimeSeries(TSID="diversion:100380.HDB.inst flow.Irregular~hdbtest",Alias="FirstRead",IfNotFound=Warn)
+# Compare the time series read as a time series with a time series created from SQL query output:
+# - allow 4 values to be different due to daylight saving time
+ReadTableFromDataStore(DataStore="hdbtest",Sql="select * from R_INSTANT where site_datatype_id = 100380 and start_date_time >= to_date('${InputStart}','YYYY-MM-DD HH24:MI') and start_date_time <= to_date('${InputEnd}','YYYY-MM-DD HH24:MI') order by start_date_time",TableID="r_instant1")
+TableToTimeSeries(TableID="r_instant1",DateTimeColumn="start_date_time",LocationID="100380",ValueColumn="value",Interval=IRREGULAR,IrregularIntervalPrecision=Minute,Units="cfs",Alias="FirstReadFromTable")
+CompareTimeSeries(TSID1="AAA_DELETE",TSID2="FirstRead",AllowedDiff="4",IfDifferent=Warn)
+CompareTimeSeries(TSID1="FirstRead",TSID2="FirstReadFromTable",AllowedDiff="3",IfDifferent=Warn)
+# Also check for missing because there should be none over time zone change
+CheckTimeSeries(TSList=AllMatchingTSID,TSID="FirstRead",CheckCriteria="Missing")
+CheckTimeSeries(TSList=AllMatchingTSID,TSID="FirstReadFromTable",CheckCriteria="Missing")
+#------------------------- end the first pass -------------------------------------
+#
+#------------------------- start the second pass -------------------------------------
+#
+# Second pass (previous values as hundreds)...
+NewPatternTimeSeries(Alias="AAA_DELETE",NewTSID="AAA_DELETE.HDB.flow.Irregular",IrregularInterval=15Minute,Description="AAA_DELETE",Units="cfs",PatternValues="500,100,120,130,750")
+# First write the time series to the database...
+#WriteReclamationHDB(DataStore="hdbtest",TSList=LastMatchingTSID,TSID="AAA_DELETE",SiteCommonName="AAA_DELETE",DataTypeCommonName="inst flow",SiteDataTypeID=100380,ValidationFlag="A",TimeZone="MST",WriteProcedure="OLD_WRITE_TO_HDB")
+WriteReclamationHDB(DataStore="hdbtest",TSList=LastMatchingTSID,TSID="AAA_DELETE",SiteCommonName="AAA_DELETE",DataTypeCommonName="inst flow",SiteDataTypeID=100380,Agency="USBR",ValidationFlag="A",TimeZone="MST",WriteProcedure="WRITE_DATA")
+# Now read the same time series from the database using the period that was written...
+ReadReclamationHDB(DataStore="hdbtest",Interval="Irregular",SiteCommonName="AAA_DELETE",DataTypeCommonName="inst flow",SiteDataTypeID=100380,Alias="SecondRead")
+# Compare the time series read as a time series with a time series created from SQL query output:
+# - allow 4 values to be different due to daylight saving time
+ReadTableFromDataStore(DataStore="hdbtest",Sql="select * from R_INSTANT where site_datatype_id = 100380 and start_date_time >= to_date('${InputStart}','YYYY-MM-DD HH24:MI') and start_date_time <= to_date('${InputEnd}','YYYY-MM-DD HH24:MI') order by start_date_time",TableID="r_instant2")
+TableToTimeSeries(TableID="r_instant2",DateTimeColumn="start_date_time",LocationID="100380",ValueColumn="value",Interval=IRREGULAR,IrregularIntervalPrecision=Minute,Units="cfs",Alias="SecondReadFromTable")
+CompareTimeSeries(TSID1="AAA_DELETE",TSID2="SecondRead",AllowedDiff="4",IfDifferent=Warn)
+CompareTimeSeries(TSID1="SecondRead",TSID2="SecondReadFromTable",IfDifferent=Warn)
+# Also check for missing because there should be none over time zone change
+CheckTimeSeries(TSList=AllMatchingTSID,TSID="SecondRead",CheckCriteria="Missing")
+CheckTimeSeries(TSList=AllMatchingTSID,TSID="SecondReadFromTable",CheckCriteria="Missing")
+#------------------------- end the second pass -------------------------------------
+#
+# Uncomment the following command to regenerate the expected results file.
+# WriteDateValue(TSList=LastMatchingTSID,TSID="AAA_DELETE.HDB.flow.Irregular",OutputFile="ExpectedResults/Test_WriteReclamationHDB_Dev_Instant_AAADELETE_Real_out.dv")
+# Generate new output for what was read from the database...
+WriteDateValue(TSList=LastMatchingTSID,TSID="AAA_DELETE.HDB.flow.Irregular",OutputFile="Results/Test_WriteReclamationHDB_Dev_Instant_AAADELETE_Real_out.dv")
+# Do regression comparison...
+CompareFiles(InputFile1="ExpectedResults\Test_WriteReclamationHDB_Dev_Instant_AAADELETE_Real_out.dv",InputFile2="Results/Test_WriteReclamationHDB_Dev_Instant_AAADELETE_Real_out.dv",IfDifferent=Warn)

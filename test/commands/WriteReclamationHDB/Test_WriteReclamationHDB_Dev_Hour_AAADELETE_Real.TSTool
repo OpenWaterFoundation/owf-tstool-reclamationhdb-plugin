@@ -1,0 +1,73 @@
+# TODO SAM 2016-05-01 This test fails apparently due to bug in Oracle JDBC driver related to time zone change
+# Test writing a 1hour REAL time series to ReclamationHDB database:
+#   - This is a copy of the 1Hour test but using more general Hour interval
+#   - development database
+#   - old WRITE_TO_HDB procedure
+#   - real HOUR table
+#   - SDI 100376 (AAA_DELETE site common name)
+#   - hour data - note that HDB uses end_date_time for end of interval but write routines key off of start_date_time
+#   - Write twice with different numbers to make sure old results are not just sitting
+#     in the database.  Write non-missing values because HDB convention is to
+#     NOT write missing values (not sure how re-write is handled if missing involved).
+#   - For two writes, use TSID read once, and ReadReclamationHDB() once to exercise read.
+#   - Set the period to cross the time change, which occurs at 2010-03-14 02
+#   - TO EXAMINE tests, look at first 3 time series
+#@testSuite ReclamationHDB
+StartLog(LogFile="Results/Test_WriteReclamationHDB_Dev_Hour_AAADELETE_Real.TSTool.log")
+RemoveFile(InputFile="Results/Test_ReclamationHDB_Dev_Hour_AAADELETE_Real_out.dv",IfNotFound=Ignore)
+# Query the session time zone to troubleshoot
+ReadTableFromDataStore(DataStore="hdbtest",Sql="SELECT SESSIONTIMEZONE FROM DUAL",TableID="SESSIONTIMEZONE")
+RunSql(DataStore="hdbtest",Sql="ALTER SESSION SET TIME_ZONE='MST'")
+ReadTableFromDataStore(DataStore="hdbtest",Sql="SELECT SESSIONTIMEZONE FROM DUAL",TableID="SESSIONTIMEZONE_AfterSet")
+#
+SetOutputPeriod(OutputStart="2010-03-10 00",OutputEnd="2010-03-15 12")
+SetInputPeriod(InputStart="2010-03-10 00",InputEnd="2010-03-15 12")
+#------------------------- start the first pass -------------------------------------
+NewPatternTimeSeries(Alias="AAA_DELETE",NewTSID="AAA_DELETE.HDB.flow.Hour",Description="AAA_DELETE",Units="cfs",PatternValues="55,105,125,135,755")
+# First write the time series to the database...
+SetDebugLevel(LogFileLevel=1)
+WriteReclamationHDB(DataStore="hdbtest",SiteDataTypeID=100376,ValidationFlag="A",TimeZone="MST",WriteProcedure="OLD_WRITE_TO_HDB")
+SetDebugLevel(ScreenLevel=0,LogFileLevel=0)
+# Now read the same time series from the database using the period that was written...
+SetDebugLevel(LogFileLevel=1)
+ReadReclamationHDB(DataStore="hdbtest",Interval="Hour",SiteDataTypeID=100376,Alias="FirstRead")
+SetDebugLevel(ScreenLevel=0,LogFileLevel=0)
+# Compare the time series read as a time series with a time series created from SQL query output:
+# - allow 1 difference when reading because daylight saving change results in 1 missing value
+ReadTableFromDataStore(DataStore="hdbtest",Sql="select * from R_HOUR where site_datatype_id = 100376 and end_date_time >= to_date('${InputStart}','YYYY-MM-DD HH24') and end_date_time <= to_date('${InputEnd}','YYYY-MM-DD HH24') order by start_date_time",TableID="r_hour1")
+TableToTimeSeries(TableID="r_hour1",DateTimeColumn="end_date_time",LocationID="100376",ValueColumn="value",Interval=Hour,Units="cfs",Alias="FirstReadFromTable")
+CompareTimeSeries(TSID1="AAA_DELETE",TSID2="FirstRead",AllowedDiff="1",IfDifferent=Warn)
+CompareTimeSeries(TSID1="FirstRead",TSID2="FirstReadFromTable",IfDifferent=Warn)
+# Also check for missing because there should be none over time zone change:
+# - TODO smalers 2021-11-22 don't check for missing because daylight saving introduces 1 missing value
+#   and the time series comparison above will catch missing
+# CheckTimeSeries(TSList=AllMatchingTSID,TSID="FirstRead",CheckCriteria="Missing")
+# CheckTimeSeries(TSList=AllMatchingTSID,TSID="FirstReadFromTable",CheckCriteria="Missing")
+#------------------------- end the first pass -------------------------------------
+#
+#------------------------- start the second pass -------------------------------------
+# Start second pass (previous values x 10)...
+NewPatternTimeSeries(Alias="AAA_DELETE",NewTSID="AAA_DELETE.HDB.flow.Hour",Description="AAA_DELETE",Units="cfs",PatternValues="550,1050,1250,1350,7550")
+# First write the time series to the database...
+WriteReclamationHDB(DataStore="hdbtest",TSList=LastMatchingTSID,TSID="AAA_DELETE",SiteDataTypeID=100376,ValidationFlag="A",TimeZone="MST",WriteProcedure="OLD_WRITE_TO_HDB")
+# Now read the same time series from the database using the period that was written...
+ReadReclamationHDB(DataStore="hdbtest",Interval="Hour",SiteDataTypeID=100376,Alias="SecondRead")
+# Compare the time series read as a time series with a time series created from SQL query output.
+# - allow 1 difference when reading because daylight saving change results in 1 missing value
+ReadTableFromDataStore(DataStore="hdbtest",Sql="select * from R_HOUR where site_datatype_id = 100376 and end_date_time >= to_date('${InputStart}','YYYY-MM-DD HH24') and end_date_time <= to_date('${InputEnd}','YYYY-MM-DD HH24') order by start_date_time",TableID="r_hour2")
+TableToTimeSeries(TableID="r_hour2",DateTimeColumn="end_date_time",LocationID="100376",ValueColumn="value",Interval=Hour,Units="cfs",Alias="SecondReadFromTable")
+CompareTimeSeries(TSID1="AAA_DELETE",TSID2="SecondRead",AllowedDiff="1",IfDifferent=Warn)
+CompareTimeSeries(TSID1="SecondRead",TSID2="SecondReadFromTable",IfDifferent=Warn)
+# Also check for missing because there should be none over time zone change
+# - TODO smalers 2021-11-22 don't check for missing because daylight saving introduces 1 missing value
+#   and the time series comparison above will catch missing
+# CheckTimeSeries(TSList=AllMatchingTSID,TSID="SecondRead",CheckCriteria="Missing")
+# CheckTimeSeries(TSList=AllMatchingTSID,TSID="SecondReadFromTable",CheckCriteria="Missing")
+#------------------------- end the second pass -------------------------------------
+#
+# Uncomment the following command to regenerate the expected results file.
+# WriteDateValue(TSList=LastMatchingTSID,TSID="FirstRead",OutputFile="ExpectedResults/Test_WriteReclamationHDB_Dev_Hour_AAADELETE_Real_out.dv")
+# Generate new output for what was read from the database...
+WriteDateValue(TSList=LastMatchingTSID,TSID="FirstRead",OutputFile="Results/Test_WriteReclamationHDB_Dev_Hour_AAADELETE_Real_out.dv")
+# Do regression comparison...
+CompareFiles(InputFile1="ExpectedResults\Test_WriteReclamationHDB_Dev_Hour_AAADELETE_Real_out.dv",InputFile2="Results/Test_WriteReclamationHDB_Dev_Hour_AAADELETE_Real_out.dv",IfDifferent=Warn)

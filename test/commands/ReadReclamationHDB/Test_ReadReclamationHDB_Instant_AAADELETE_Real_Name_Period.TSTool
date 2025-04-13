@@ -1,0 +1,22 @@
+#@enabled False
+# Disable because should only be testing against development database
+#
+# Test reading an instantaneous time series from ReclamationHDB database real table by specifying name, etc.
+# The AAA_DELETE location data are read
+# The input period is specified to limit the read to a shorter period than what is in the database
+#@testSuite ReclamationHDB
+StartLog(LogFile="Results/Test_ReadReclamationHDB_Instant_AAADELETE_Real_Name_Period.TSTool.log")
+RemoveFile(InputFile="Results/Test_ReclamationHDB_Instant_AAADELETE_Real_Name_Period_out.dv",IfNotFound=Ignore)
+# Make the definition of this time series match what is used in HDB so that the comparison
+# of results all matches
+NewPatternTimeSeries(Alias="AAA_DELETE",NewTSID="Real:AAA_DELETE.HDB.flow.Irregular",IrregularInterval=15Minute,Description="Real:AAA_DELETE",SetStart="2010-01-01 00:00 MST",SetEnd="2010-01-03 12:30 MST",Units="cfs",PatternValues="5,10,12,13,75")
+# First write the time series to the database...
+WriteReclamationHDB(DataStore="hdbtest",SiteCommonName="AAA_DELETE",DataTypeCommonName="inst flow")
+# Uncomment the following command to regenerate the expected results file using the short period that will be read.
+# WriteDateValue(OutputFile="ExpectedResults\Test_ReadReclamationHDB_Instant_AAADELETE_Real_Name_Period_out.dv",OutputStart="2010-01-02 00:00",OutputEnd="2010-01-02 12:30")
+# Now read the same time series from the database using a shorter period than was written...
+ReadReclamationHDB(DataStore="hdbtest",DataType="stream gage - inst flow",Interval="Irregular",Where1="Site - Common Name;Matches;AAA_DELETE",InputStart="2010-01-02 00:00",InputEnd="2010-01-02 12:30",Alias="%L-%T")
+# Generate new output for what was read from the database (should be short period)...
+WriteDateValue(OutputFile="Results/Test_ReadReclamationHDB_Instant_AAADELETE_Real_Name_Period_out.dv",TSList=LastMatchingTSID,TSID="Real:AAA_DELETE-inst flow")
+# Do regression comparison (allow 4 differences due to header differences)...
+CompareFiles(InputFile1="ExpectedResults\Test_ReadReclamationHDB_Instant_AAADELETE_Real_Name_Period_out.dv",InputFile2="Results/Test_ReadReclamationHDB_Instant_AAADELETE_Real_Name_Period_out.dv",AllowedDiff="8",IfDifferent=Warn)
