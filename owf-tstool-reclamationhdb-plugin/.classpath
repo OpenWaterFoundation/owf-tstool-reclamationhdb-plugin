@@ -37,6 +37,6 @@
 			<attribute name="maven.pomderived" value="true"/>
 		</attributes>
 	</classpathentry>
-	<classpathentry kind="lib" path="/cdss-lib-processor-ts-java/lib/Oracle_JDBC/ojdbc8.jar"/>
+	<classpathentry kind="lib" path="/cdss-lib-processor-ts-java/lib/Oracle_JDBC/ojdbc11.jar"/>
 	<classpathentry kind="output" path="target/classes"/>
 </classpath>

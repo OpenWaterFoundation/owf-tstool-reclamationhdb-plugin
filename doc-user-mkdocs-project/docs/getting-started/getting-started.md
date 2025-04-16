@@ -1,7 +1,5 @@
 # TSTool / Getting Started #
 
-**This documentation needs to be udpated during final development and testing.**
-
 This chapter provides an overview of getting started with TSTool and the Reclamation HDB plugin commands.
 
 *   [Introduction](#introduction)
@@ -46,10 +44,11 @@ The program can be found in the software's `/bin` folder.
 Multiple versions of TSTool can be installed to facilitate transition from older to newer versions.
 
 To process a command file in batch mode without showing the user interface,
-use a command line similar to the following:
+use a command line similar to the following.
+The leading `--` are needed to separate options for the TSTool run script from the TSTool application.
 
 ```
-tstool -–commands commands.tstool
+tstool -- -–commands commands.tstool
 ```
 
 It is customary to name command files with a `.tstool` file extension.
@@ -68,8 +67,10 @@ See the [Appendix - Install Plugin](../appendix-install/install.md) documentatio
 The main TSTool user interface can be used to list HDB time series, as follows:
 
 1.  Select a Reclamation HDB datastore from the ***Datastore*** choices.
-2.  Select a data type using the ***Data type*** choices, or select `*` to list all data types.
-3.  Select a time step (interval) using the ***Time step*** choices, or select `*` to list all timesteps.
+2.  Select a data type using the ***Data type*** choices, or select `*` to list all data types
+    (will be slower than a single data type).
+3.  Select a time step (interval) using the ***Time step*** choices, or select `*` to list all timesteps
+    (will be slower than a single time step).
 4.  Use the ***Where*** choices to specify time series filters,
     for example to list time series for a specific site or station.
 5.  Press the ***Get Time Series List*** button to list time series.

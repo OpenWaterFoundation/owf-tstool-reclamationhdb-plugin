@@ -9,7 +9,7 @@ Comment08: Increment the number as needed for the number of command classes.
 Comment09: Class-Path contains the dep/ folder for dependency jar files.
 manifest-Version: 1.0
 Plugin-Name: owf-tstool-reclamationhdb-plugin
-Plugin-Version: 1.0.0
+Plugin-Version: 1.0.1
 TSTool-Version: >= 15.1.0
 DataStore-Class: org.openwaterfoundation.tstool.plugin.reclamationhdb.
  datastore.ReclamationHDBDataStore

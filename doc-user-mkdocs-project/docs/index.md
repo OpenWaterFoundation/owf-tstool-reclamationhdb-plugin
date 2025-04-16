@@ -10,7 +10,7 @@ This plugin allows reading from and writing to the US Bureau of Reclamation Hydr
 This documentation has been updated for:
 
 *   TSTool version 15.1.0
-*   TSTool Reclamation HDB plugin version 1.0.0
+*   TSTool Reclamation HDB plugin version 1.0.1
 
 **TSTool 15.0.0 or later is required for this version of the plugin due to Java being updated to version 11.
 Version 15.1.0 or later is required to ensure that duplicate Reclamation HDB TSTool features are avoided.**
