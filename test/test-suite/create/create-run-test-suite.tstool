@@ -1,4 +1,4 @@
-StartLog(LogFile="Results/create-run-test-suite.tstool.log")
+StartLog(LogFile="results/create-run-test-suite.tstool.log")
 #
 # Create the run command file for the test suite.
 #

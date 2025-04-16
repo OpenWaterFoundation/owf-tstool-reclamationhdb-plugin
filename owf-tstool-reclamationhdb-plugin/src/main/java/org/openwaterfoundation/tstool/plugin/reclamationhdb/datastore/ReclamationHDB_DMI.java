@@ -3444,8 +3444,7 @@ Read a time series from the ReclamationHDB database using the string time series
 @return the time series
 */
 public TS readTimeSeries ( String tsidentString, DateTime readStart, DateTime readEnd, boolean readData )
-throws Exception
-{
+throws Exception {
 	int nHourIntervalOffset = -1; // Don't use offset.
 	return readTimeSeries ( tsidentString, readStart, readEnd, nHourIntervalOffset, readData );
 }

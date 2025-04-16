@@ -107,6 +107,7 @@ public class TSTool_HDB {
 	Read ReclamationHDB time series and list in the GUI.
 	*/
 	// TODO smalers 2025-04-12 remove when tested out.
+	// This code is included in the datastore readTimeSeriesMeta() method.
 	/*
 	public void getTimeSeriesListClicked_ReadReclamationHDBCatalog() {
 		String rtn = getClass().getSimpleName() + ".getTimeSeriesListClicked_ReadReclamationHDBCatalog";
@@ -355,6 +356,8 @@ public class TSTool_HDB {
 	Refresh the query choices for the currently selected ReclamationHDB datastore.
 	*/
 	// TODO smalers 2025-04-12 remove when tested out.
+	// This is in the datastore getTimeSeriesDataTypeStrings() method in the plugin.
+	// This is in the datastore getTimeSeriesDataIntervalStrings() method in the plugin.
 	/*
 	public void selectDataStore ( ReclamationHDBDataStore selectedDataStore )
 	throws Exception {
@@ -415,6 +418,7 @@ public class TSTool_HDB {
 	 * @param useAlias whether to use an alias
 	 */
 	// TODO smalers 2025-04-12 remove when tested out.
+	// This is now the datastore getTimeSeriesIdentifierFromTableModel() method in the plugin.
 	/*
     public int transferOneTimeSeriesCatalogRowToCommands ( int row, boolean useAlias, int insertOffset ) {
         // The location (id), type, and time step uniquely identify the time series,

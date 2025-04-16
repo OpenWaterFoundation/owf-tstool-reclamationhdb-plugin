@@ -29,15 +29,15 @@ import RTi.Util.GUI.JWorksheet_AbstractExcelCellRenderer;
 This class is used to render cells for TSTool_ReclamationHDB_TableModel data.
 */
 @SuppressWarnings("serial")
-public class TSTool_ReclamationHDB_CellRenderer extends JWorksheet_AbstractExcelCellRenderer {
+public class ReclamationHDB_TimeSeries_CellRenderer extends JWorksheet_AbstractExcelCellRenderer {
 
-TSTool_ReclamationHDB_TableModel __table_model = null;
+ReclamationHDB_TimeSeries_TableModel __table_model = null;
 
 /**
 Constructor.
 @param table_model The TSTool_ReclamationHDB_TableModel to render.
 */
-public TSTool_ReclamationHDB_CellRenderer ( TSTool_ReclamationHDB_TableModel table_model ) {
+public ReclamationHDB_TimeSeries_CellRenderer ( ReclamationHDB_TimeSeries_TableModel table_model ) {
 	__table_model = table_model;
 }
 

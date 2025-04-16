@@ -35,7 +35,7 @@ This class is a table model for time series header information for Reclamation H
 By default the sheet will contain row and column numbers.
 */
 @SuppressWarnings("serial")
-public class TSTool_ReclamationHDB_TableModel extends JWorksheet_AbstractRowTableModel<ReclamationHDB_SiteTimeSeriesMetadata>
+public class ReclamationHDB_TimeSeries_TableModel extends JWorksheet_AbstractRowTableModel<ReclamationHDB_SiteTimeSeriesMetadata>
 {
 
 /**
@@ -107,8 +107,7 @@ Constructor.  This builds the model for displaying the given Reclamation HDB tim
 @param data the list of ReclamationHDB_SiteTimeSeriesMetadata that will be displayed in the table (null is allowed - see setData()).
 @throws Exception if an invalid results passed in.
 */
-public TSTool_ReclamationHDB_TableModel ( ReclamationHDBDataStore dataStore, List<ReclamationHDB_SiteTimeSeriesMetadata> data )
-throws Exception {
+public ReclamationHDB_TimeSeries_TableModel ( ReclamationHDBDataStore dataStore, List<ReclamationHDB_SiteTimeSeriesMetadata> data ) {
 	if ( data == null ) {
 		_rows = 0;
 	}

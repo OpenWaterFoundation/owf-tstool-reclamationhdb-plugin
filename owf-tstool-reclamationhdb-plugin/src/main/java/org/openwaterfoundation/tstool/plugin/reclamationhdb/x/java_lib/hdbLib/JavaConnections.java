@@ -10,6 +10,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 
+import RTi.Util.Message.Message;
+
 /**
 * Class to support java jdbc connections.
 */
@@ -49,22 +51,19 @@ public class JavaConnections extends Object
 	* Constructor loads Driver Manager and makes connection
 	* Non HDB Constructor useing url or dsn
 	*/
-
-	public JavaConnections(String dbType, String dbUrl,	String userName, String userPassword)
-	{
-		try
-		{
-			if (this.loadDriverManager(dbType))
-			{
-				ourConn = this.makeConnection(dbType, dbUrl, userName, userPassword);
+	public JavaConnections(String dbType, String dbUrl,	String userName, String userPassword) {
+		String routine = getClass().getSimpleName() + ".JavaConnections";
+		try {
+			if (this.loadDriverManager(dbType)) {
+				this.ourConn = this.makeConnection(dbType, dbUrl, userName, userPassword);
 			}
 		}
-		catch (java.lang.Exception e)
-		{
-			e.printStackTrace();
+		catch (java.lang.Exception e) {
+			Message.printWarning(3,routine,"Error opening Oracle connection.");
+			Message.printWarning(3,routine,e);
+			//e.printStackTrace();
 		}
-
-	}	// end constructor
+	}
 
 	/**
 	* Method to load driver manager
@@ -192,25 +191,26 @@ public class JavaConnections extends Object
 	* @param userPassword Password for database user.
 	* @return Connection object.
 	*/
-
-	public Connection makeConnection(String dbType, String dbUrl, String userName, String userPassword)
-	{
+	public Connection makeConnection(String dbType, String dbUrl, String userName, String userPassword) {
+		String routine = getClass().getSimpleName() + ".makeConnection";
 		Connection cReturn;
-		try
-		{
-			if (dbType.equalsIgnoreCase("odbc") || dbType.equalsIgnoreCase("access"))
-
+		try {
+			if (dbType.equalsIgnoreCase("odbc") || dbType.equalsIgnoreCase("access")) {
 				// odbc - dbUrl is used as dsn
-
+				Message.printStatus(2, routine, "Creating Oracle ODBC connection.");
 				cReturn = this.userOdbcConnect(dbUrl, userName, userPassword);
-			else
+			}
+			else {
+				Message.printStatus(2, routine, "Creating Oracle thin connection.");
 				cReturn = this.userThinConnect(dbUrl, userName, userPassword);
+			}
 			return cReturn;
 		}
-		catch(java.lang.Exception e)
-		{
-			System.out.println("Unable to connect to dsn/url " + dbUrl + ".");
-			e.printStackTrace();
+		catch(java.lang.Exception e) {
+			Message.printWarning(3,routine,"Unable to connect to dsn/url " + dbUrl + ".");
+			Message.printWarning(3,routine,e);
+			//System.out.println("Unable to connect to dsn/url " + dbUrl + ".");
+			//e.printStackTrace();
 			return null;
 		}
 	}
@@ -310,24 +310,22 @@ public class JavaConnections extends Object
 	* @param userPassword User password.
 	* @return True if successfully completed.
 	*/
-
-	public Connection userThinConnect(String dbUrl, String userName, String userPassword)
-	{
+	public Connection userThinConnect(String dbUrl, String userName, String userPassword) {
+		String routine = getClass().getSimpleName() + ".userThinConnect";
 		Connection theConn = null;
-		try
-		{
-
+		try {
 			theConn = DriverManager.getConnection(dbUrl, userName, userPassword);
-			System.out.println("User " + userName + " is connected to database.");
-
+			Message.printStatus(2,routine,"User " + userName + " is connected to database.");
+			//System.out.println("User " + userName + " is connected to database.");
 		}
-		catch(java.lang.Exception e)
-		{
-			System.out.println("Unable to connect to database as " + userName);
-			e.printStackTrace();
+		catch(java.lang.Exception e) {
+			Message.printWarning(3,routine,"Unable to connect to database as " + userName);
+			Message.printWarning(3,routine,e);
+			//System.out.println("Unable to connect to database as " + userName);
+			//e.printStackTrace();
 		}
 		return theConn;
-	}	// end method
+	}
 
 	// quick and dirty connection as user using odbc protocol
 

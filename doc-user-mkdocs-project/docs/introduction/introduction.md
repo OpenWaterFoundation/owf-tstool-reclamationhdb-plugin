@@ -28,7 +28,7 @@ which also enhances the software based on project needs.
 
 HDB database are implemented by US Bureau of Reclamation offices to store data needed for operations.
 The HDB database uses Oracle.
-TSTool uses Java JDBC technologies to interface with an HDB database, using a "datastore" design
+TSTool uses Java JDBC technologies to interface with an HDB database, using a TSTool datastore design
 and datastore configuration file.
 
 *   The [Reclamation HDB datastore documentation](../datastore-ref/ReclamationHDB/ReclamationHDB.md) describes how TSTool integrates with the database.
