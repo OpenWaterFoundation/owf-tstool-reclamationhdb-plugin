@@ -24,7 +24,9 @@ NoticeEnd */
 package org.openwaterfoundation.tstool.plugin.reclamationhdb.datastore;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import javax.swing.JFrame;
 
@@ -60,6 +62,11 @@ public DataStore create ( PropList props ) {
     String databasePort = IOUtil.expandPropertyForEnvironment("DatabasePort",props.getValue("DatabasePort"));
     String systemLogin = IOUtil.expandPropertyForEnvironment("SystemLogin",props.getValue ( "SystemLogin" ));
     String systemPassword = IOUtil.expandPropertyForEnvironment("SystemPassword",props.getValue ( "SystemPassword" ));
+    String oracleNetworkFolder = IOUtil.expandPropertyForEnvironment("OracleNetworkFolder",props.getValue ( "OracleNetworkFolder" ));
+    String oracleWalletFolder = IOUtil.expandPropertyForEnvironment("OracleWalletFolder",props.getValue ( "OracleWalletFolder" ));
+    String connectionUrlAppend = IOUtil.expandPropertyForEnvironment("ConnectionUrlAppend",props.getValue ( "ConnectionUrlAppend" ));
+    String connectionUrl = IOUtil.expandPropertyForEnvironment("ConnectionUrl",props.getValue ( "ConnectionUrl" ));
+    
     String tsidStyle = props.getValue("TSIDStyle");
     int port = -1;
     if ( (databasePort != null) && !databasePort.equals("") ) {
@@ -80,23 +87,24 @@ public DataStore create ( PropList props ) {
         readNHourEndDateTime = true;
     }
     String ConnectTimeout = props.getValue("ConnectTimeout");
-    int connectTimeout = 0;
+    // Connect timeout is 5 minutes.
+    int connectTimeout = 300;
     if ( (ConnectTimeout != null) && !ConnectTimeout.equals("") ) {
         try {
-            connectTimeout = Integer.parseInt(ConnectTimeout);
+            connectTimeout = Integer.valueOf(ConnectTimeout);
         }
         catch ( Exception e ) {
-            connectTimeout = 0;
+            connectTimeout = 300;
         }
     }
     String ReadTimeout = props.getValue("ReadTimeout");
-    int readTimeout = 0;
+    int readTimeout = 600;
     if ( (ReadTimeout != null) && !ReadTimeout.equals("") ) {
         try {
             readTimeout = Integer.parseInt(ReadTimeout);
         }
         catch ( Exception e ) {
-            readTimeout = 0;
+            readTimeout = 600;
         }
     }
     String ResultSetFetchSize = props.getValue("ResultSetFetchSize");
@@ -132,6 +140,12 @@ public DataStore create ( PropList props ) {
     //Message.printStatus(2,routine,"In factory create, description property is \"" + props2.getValue("Description") + "\" from DS=\"" + ds.getProperty("Description") + "\", all properties:");
     Message.printStatus(2,routine, props2.toString());
     ReclamationHDB_DMI dmi = null;
+    // Use a map to pass specific properties.
+    Map<String,Object> propertiesMap = new HashMap<>();
+    propertiesMap.put("OracleNetworkFolder", oracleNetworkFolder);
+    propertiesMap.put("OracleWalletFolder", oracleWalletFolder);
+    propertiesMap.put("ConnectionUrlAppend", connectionUrlAppend);
+    propertiesMap.put("ConnectionUrl", connectionUrl);
     try {
         dmi = new ReclamationHDB_DMI (
             databaseEngine, // OK if null, will use Oracle.
@@ -139,13 +153,16 @@ public DataStore create ( PropList props ) {
             databaseName, // Required.
             port,
             systemLogin,
-            systemPassword );
+            systemPassword,
+            propertiesMap ); // Properties for the DMI (may also be in the datastore properties).
         // Set the datastore here so it has a DMI instance, but DMI instance will not be open.
         ds = new ReclamationHDBDataStore ( name, description, dmi );
         ds.setProperties(props2);
         dmi.setTSIDStyleSDI ( tsidStyleSDI );
         dmi.setReadNHourEndDateTime( readNHourEndDateTime );
         dmi.setLoginTimeout(connectTimeout);
+        dmi.setOracleNetworkFolder(oracleNetworkFolder);
+        dmi.setOracleWalletFolder(oracleWalletFolder);
         dmi.setReadTimeout(readTimeout);
         dmi.setResultSetFetchSize(resultSetFetchSize);
         dmi.setWriteToHdbInsertStatementMax(writeToHdbInsertStatementMax);

@@ -44,6 +44,7 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.Hashtable;
 import java.util.List;
+import java.util.Map;
 import java.util.TimeZone;
 
 import org.openwaterfoundation.tstool.plugin.reclamationhdb.dao.ReclamationHDB_Agency;
@@ -63,7 +64,8 @@ import org.openwaterfoundation.tstool.plugin.reclamationhdb.dao.ReclamationHDB_S
 import org.openwaterfoundation.tstool.plugin.reclamationhdb.dao.ReclamationHDB_SiteDataType;
 import org.openwaterfoundation.tstool.plugin.reclamationhdb.dao.ReclamationHDB_SiteTimeSeriesMetadata;
 import org.openwaterfoundation.tstool.plugin.reclamationhdb.dao.ReclamationHDB_Validation;
-import org.openwaterfoundation.tstool.plugin.reclamationhdb.x.java_lib.hdbLib.JavaConnections;
+// Legacy code - remove when current code passes tests.
+//import org.openwaterfoundation.tstool.plugin.reclamationhdb.x.java_lib.hdbLib.JavaConnections;
 
 import RTi.DMI.DMI;
 import RTi.DMI.DMIUtil;
@@ -94,9 +96,10 @@ public class ReclamationHDB_DMI extends DMI
 {
 
 /**
-Connection to the database.
+Connection to the database:
+- this is legacy code from Dave King
 */
-private JavaConnections __hdbConnection = null;
+//private JavaConnections __hdbConnection = null;
 
 /**
 Database parameters from REF_DB_PARAMETER.
@@ -183,6 +186,16 @@ Object types from HDB_OBJECTTYPE.
 private List<ReclamationHDB_ObjectType> __objectTypeList = new ArrayList<>();
 
 /**
+ * Oracle network folder, which contains the Oracle network "tnsnames.ora" and "sqlnet.ora" files.
+ */
+private String oracleNetworkFolder = "";
+
+/**
+ * Oracle Wallet folder, which contains the Oracle database Oracle Wallet certificates and other files.
+ */
+private String oracleWalletFolder = "";
+
+/**
 Overwrite flags from HDB_OVERWRITE_FLAG.
 */
 private List<ReclamationHDB_OverwriteFlag> __overwriteFlagList = new ArrayList<>();
@@ -212,13 +225,20 @@ Because Dave King's DMI code is used for low-level database work, this DMI is ju
 @param systemLogin If not null, this is used as the system login to make the connection.  If null, the default system login is used.
 @param systemPassword If not null, this is used as the system password to make the connection.
 If null, the default system password is used.
+@param connectionPropertiesMap map of properties for specific configuration information
 */
 public ReclamationHDB_DMI ( String databaseEngine, String databaseServer,
-    String databaseName, int port, String systemLogin, String systemPassword )
+    String databaseName, int port, String systemLogin, String systemPassword, Map<String,Object> connectionPropertiesMap )
 throws Exception {
     // The engine is used in the base class so it needs to be non-null in the following call if not specified.
-    super ( (databaseEngine == null) ? "Oracle" : databaseEngine,
-        databaseServer, databaseName, port, systemLogin, systemPassword );
+    super (
+    	((databaseEngine == null) ? "Oracle" : databaseEngine),
+        databaseServer,
+        databaseName,
+        port,
+        systemLogin,
+        systemPassword,
+        connectionPropertiesMap );
     setEditable(true);
     setSecure(true);
 }
@@ -348,8 +368,7 @@ private String convertTimeIntervalToReclamationHDBInterval(String interval) {
         return "INSTANT";
     }
     else {
-        throw new InvalidParameterException ( "Interval \"" + interval +
-            "\" cannot be converted to Reclamation HDB interval." );
+        throw new InvalidParameterException ( "Interval \"" + interval + "\" cannot be converted to Reclamation HDB interval." );
     }
 }
 
@@ -367,7 +386,7 @@ Find an instance of ReclamationHDB_Ensemble given the ensemble name.
 @param ensembleName the ensemble name to match (case-insensitive)
 */
 public List<ReclamationHDB_Ensemble> findEnsemble( List<ReclamationHDB_Ensemble> ensembleList, String ensembleName ) {
-    List<ReclamationHDB_Ensemble> foundList = new ArrayList<ReclamationHDB_Ensemble>();
+    List<ReclamationHDB_Ensemble> foundList = new ArrayList<>();
     for ( ReclamationHDB_Ensemble ensemble: ensembleList ) {
         if ( (ensembleName != null) && !ensemble.getEnsembleName().equalsIgnoreCase(ensembleName) ) {
             // Ensemble name to match was specified but did not match.
@@ -437,13 +456,13 @@ public List<ReclamationHDB_ModelRun> findModelRun( List<ReclamationHDB_ModelRun>
             // Model name to match was specified but did not match.
             continue;
         }
-        if ( (modelRunName != null) && !modelRunName.equals("") &&
+        if ( (modelRunName != null) && !modelRunName.isEmpty() &&
             !modelRun.getModelRunName().equalsIgnoreCase(modelRunName) ) {
             // Model run name to match was specified but did not match.
             continue;
         }
         // Model run date is compared to the minute.
-        if ( (modelRunDate != null) && !modelRunDate.equals("") ) {
+        if ( (modelRunDate != null) && !modelRunDate.isEmpty() ) {
             DateTime dt = new DateTime(modelRun.getRunDate(),DateTime.PRECISION_MINUTE);
             if ( !dt.toString().equalsIgnoreCase(modelRunDate) ) {
                 // Model run date to match was specified but did not match.
@@ -622,7 +641,9 @@ throws SQLException {
     List<String> types = new ArrayList<>();
 
     try {
-        stmt = __hdbConnection.ourConn.createStatement();
+    	// Legacy code - remove when current code passes tests.
+        //stmt = __hdbConnection.ourConn.createStatement();
+        stmt = getConnection().createStatement();
         if ( __readTimeout >= 0 ) {
             stmt.setQueryTimeout(__readTimeout);
         }
@@ -698,6 +719,26 @@ private String getOracleDateFormat ( int intervalBase ) {
         throw new InvalidParameterException("Time interval " + intervalBase +
             " is not recognized - can't get Oracle date/time format.");
     }
+}
+
+/**
+Return the Oracle Network folder.
+This is intended to only be used internally during startup.
+@return the Oracle Network folder
+An empty string is returned if the wallet folder has not been set.
+*/
+public String getOracleNetworkFolder () {
+    return this.oracleNetworkFolder;
+}
+
+/**
+Return the Oracle Wallet folder.
+This is intended to only be used internally during startup.
+@return the Oracle Wallet folder
+An empty string is returned if the wallet folder has not been set.
+*/
+public String getOracleWalletFolder () {
+    return this.oracleWalletFolder;
 }
 
 /**
@@ -1096,6 +1137,7 @@ public ReclamationHDB_Site lookupSite ( List<ReclamationHDB_Site> siteList, int 
 /**
 Open the database connection.
 */
+/*
 @Override
 public void open () {
     String routine = getClass().getSimpleName() + ".open";
@@ -1132,18 +1174,21 @@ public void open () {
     // Start a "keep alive" thread to make sure the database connection is not lost
     //startKeepAliveThread();
 }
+*/
 
 /**
 Open the database with the specified login information.
 @param systemLogin the service account login
 @param systemPassword the service account password
 */
+/*
 @Override
 public void open ( String systemLogin, String systemPassword ) {
     setSystemLogin ( systemLogin );
     setSystemPassword ( systemPassword );
     open ();
 }
+*/
 
 /**
 Read an HDB ensemble given the ensemble name.
@@ -1409,7 +1454,9 @@ throws SQLException {
     ResultSet rs = null;
     Statement stmt = null;
     try {
-        stmt = __hdbConnection.ourConn.createStatement();
+    	// Legacy code - remove when current code passes tests.
+        //stmt = __hdbConnection.ourConn.createStatement();
+        stmt = getConnection().createStatement();
         if ( __readTimeout >= 0 ) {
             stmt.setQueryTimeout(__readTimeout);
         }
@@ -1440,8 +1487,7 @@ throws SQLException {
         }
     }
     catch (SQLException e) {
-        Message.printWarning(3, routine, "Error getting agency data from HDB \"" +
-            getDatabaseName() + "\" (" + e + ")." );
+        Message.printWarning(3, routine, "Error getting agency data from HDB \"" + getDatabaseName() + "\" (" + e + ")." );
         Message.printWarning(3, routine, e );
     }
     finally {
@@ -1469,7 +1515,9 @@ throws SQLException {
     ResultSet rs = null;
     Statement stmt = null;
     try {
-        stmt = __hdbConnection.ourConn.createStatement();
+    	// Legacy code - remove when current code passes tests.
+        //stmt = __hdbConnection.ourConn.createStatement();
+        stmt = getConnection().createStatement();
         if ( __readTimeout >= 0 ) {
             stmt.setQueryTimeout(__readTimeout);
         }
@@ -1500,8 +1548,7 @@ throws SQLException {
         }
     }
     catch (SQLException e) {
-        Message.printWarning(3, routine, "Error getting collection system data from HDB \"" +
-            getDatabaseName() + "\" (" + e + ")." );
+        Message.printWarning(3, routine, "Error getting collection system data from HDB \"" + getDatabaseName() + "\" (" + e + ")." );
         Message.printWarning(3, routine, e );
     }
     finally {
@@ -1529,7 +1576,9 @@ throws SQLException {
     ResultSet rs = null;
     Statement stmt = null;
     try {
-        stmt = __hdbConnection.ourConn.createStatement();
+    	// Legacy code - remove when current code passes tests.
+        //stmt = __hdbConnection.ourConn.createStatement();
+        stmt = getConnection().createStatement();
         if ( __readTimeout >= 0 ) {
             stmt.setQueryTimeout(__readTimeout);
         }
@@ -1560,8 +1609,7 @@ throws SQLException {
         }
     }
     catch (SQLException e) {
-        Message.printWarning(3, routine, "Error getting computation data from HDB \"" +
-            getDatabaseName() + "\" (" + e + ")." );
+        Message.printWarning(3, routine, "Error getting computation data from HDB \"" + getDatabaseName() + "\" (" + e + ")." );
         Message.printWarning(3, routine, e );
     }
     finally {
@@ -1592,7 +1640,9 @@ throws SQLException {
     ResultSet rs = null;
     Statement stmt = null;
     try {
-        stmt = __hdbConnection.ourConn.createStatement();
+    	// Legacy code - remove when current code passes tests.
+        //stmt = __hdbConnection.ourConn.createStatement();
+        stmt = getConnection().createStatement();
         if ( __readTimeout >= 0 ) {
             stmt.setQueryTimeout(__readTimeout);
         }
@@ -1643,8 +1693,7 @@ throws SQLException {
         }
     }
     catch (SQLException e) {
-        Message.printWarning(3, routine, "Error getting data types from HDB \"" +
-            getDatabaseName() + "\" (" + e + ")." );
+        Message.printWarning(3, routine, "Error getting data types from HDB \"" + getDatabaseName() + "\" (" + e + ")." );
         Message.printWarning(3, routine, e );
     }
     finally {
@@ -1671,7 +1720,9 @@ throws SQLException {
     ResultSet rs = null;
     Statement stmt = null;
     try {
-        stmt = __hdbConnection.ourConn.createStatement();
+    	// Legacy code - remove when current code passes tests.
+        //stmt = __hdbConnection.ourConn.createStatement();
+        stmt = getConnection().createStatement();
         if ( __readTimeout >= 0 ) {
             stmt.setQueryTimeout(__readTimeout);
         }
@@ -1706,8 +1757,7 @@ throws SQLException {
         }
     }
     catch (SQLException e) {
-        Message.printWarning(3, routine, "Error getting loading application data from HDB \"" +
-            getDatabaseName() + "\" (" + e + ")." );
+        Message.printWarning(3, routine, "Error getting loading application data from HDB \"" + getDatabaseName() + "\" (" + e + ")." );
         Message.printWarning(3, routine, e );
     }
     finally {
@@ -1733,7 +1783,9 @@ throws SQLException {
     ResultSet rs = null;
     Statement stmt = null;
     try {
-        stmt = __hdbConnection.ourConn.createStatement();
+    	// Legacy code - remove when current code passes tests.
+        //stmt = __hdbConnection.ourConn.createStatement();
+        stmt = getConnection().createStatement();
         if ( __readTimeout >= 0 ) {
             stmt.setQueryTimeout(__readTimeout);
         }
@@ -1764,8 +1816,7 @@ throws SQLException {
         }
     }
     catch (SQLException e) {
-        Message.printWarning(3, routine, "Error getting method data from HDB \"" +
-            getDatabaseName() + "\" (" + e + ")." );
+        Message.printWarning(3, routine, "Error getting method data from HDB \"" + getDatabaseName() + "\" (" + e + ")." );
         Message.printWarning(3, routine, e );
     }
     finally {
@@ -1792,13 +1843,15 @@ throws SQLException {
     StringBuilder sqlCommand = new StringBuilder("select HDB_MODEL.MODEL_ID, " +
         "HDB_MODEL.MODEL_NAME, HDB_MODEL.COORDINATED, " +
         "HDB_MODEL.CMMNT from HDB_MODEL");
-    if ( (modelName != null) && !modelName.equals("") ) {
+    if ( (modelName != null) && !modelName.isEmpty() ) {
         sqlCommand.append ( " WHERE upper(HDB_MODEL.MODEL_NAME) = '" + modelName.toUpperCase() + "'" );
     }
     ResultSet rs = null;
     Statement stmt = null;
     try {
-        stmt = __hdbConnection.ourConn.createStatement();
+    	// Legacy code - remove when current code passes tests.
+        //stmt = __hdbConnection.ourConn.createStatement();
+        stmt = getConnection().createStatement();
         if ( __readTimeout >= 0 ) {
             stmt.setQueryTimeout(__readTimeout);
         }
@@ -1810,7 +1863,7 @@ throws SQLException {
         String s;
         int col;
         ReclamationHDB_Model data;
-        while (rs.next()) {
+        while ( rs.next() ) {
             data = new ReclamationHDB_Model();
             col = 1;
             i = rs.getInt(col++);
@@ -1880,7 +1933,7 @@ throws SQLException {
         }
         where.append ( "))" );
     }
-    if ( (modelRunName != null) && !modelRunName.equals("") ) {
+    if ( (modelRunName != null) && !modelRunName.isEmpty() ) {
         if ( where.length() > 0 ) {
             where.append ( " AND " );
         }
@@ -1890,7 +1943,7 @@ throws SQLException {
         if ( where.length() > 0 ) {
             where.append ( " AND " );
         }
-        if ( hydrologicIndicator.equals("") ) {
+        if ( hydrologicIndicator.isEmpty() ) {
             where.append ( "(REF_MODEL_RUN.HYDROLOGIC_INDICATOR = '' OR REF_MODEL_RUN.HYDROLOGIC_INDICATOR is null)" );
         }
         else {
@@ -1914,7 +1967,9 @@ throws SQLException {
     ResultSet rs = null;
     Statement stmt = null;
     try {
-        stmt = __hdbConnection.ourConn.createStatement();
+    	// Legacy code - remove when current code passes tests.
+        //stmt = __hdbConnection.ourConn.createStatement();
+        stmt = getConnection().createStatement();
         if ( __readTimeout >= 0 ) {
             stmt.setQueryTimeout(__readTimeout);
         }
@@ -1984,7 +2039,7 @@ Read the list of model_run_id from a model data table given a site_datatype_id a
 */
 public List<Integer> readHdbModelRunIDListForModelTable ( int siteDataTypeID, String interval )
 throws SQLException {
-    String routine = "ReclamationHDB_DMI.readHdbModelRunListForModelTable";
+    String routine = getClass().getSimpleName() + "readHdbModelRunListForModelTable";
     List<Integer> results = new ArrayList<>();
     String table = getTimeSeriesTableFromInterval(interval, false);
 
@@ -1992,7 +2047,9 @@ throws SQLException {
     ResultSet rs = null;
     Statement stmt = null;
     try {
-        stmt = __hdbConnection.ourConn.createStatement();
+    	// Legacy code - remove when current code passes tests.
+        //stmt = __hdbConnection.ourConn.createStatement();
+        stmt = getConnection().createStatement();
         if ( __readTimeout >= 0 ) {
             stmt.setQueryTimeout(__readTimeout);
         }
@@ -2035,7 +2092,9 @@ throws SQLException {
     ResultSet rs = null;
     Statement stmt = null;
     try {
-        stmt = __hdbConnection.ourConn.createStatement();
+    	// Legacy code - remove when current code passes tests.
+        //stmt = __hdbConnection.ourConn.createStatement();
+        stmt = getConnection().createStatement();
         if ( __readTimeout >= 0 ) {
             stmt.setQueryTimeout(__readTimeout);
         }
@@ -2070,8 +2129,7 @@ throws SQLException {
         }
     }
     catch (SQLException e) {
-        Message.printWarning(3, routine, "Error getting object type data from HDB \"" +
-            getDatabaseName() + "\" (" + e + ")." );
+        Message.printWarning(3, routine, "Error getting object type data from HDB \"" + getDatabaseName() + "\" (" + e + ")." );
         Message.printWarning(3, routine, e );
     }
     finally {
@@ -2097,7 +2155,9 @@ throws SQLException {
     ResultSet rs = null;
     Statement stmt = null;
     try {
-        stmt = __hdbConnection.ourConn.createStatement();
+    	// Legacy code - remove when current code passes tests.
+        //stmt = __hdbConnection.ourConn.createStatement();
+        stmt = getConnection().createStatement();
         if ( __readTimeout >= 0 ) {
             stmt.setQueryTimeout(__readTimeout);
         }
@@ -2157,7 +2217,9 @@ throws SQLException {
     ResultSet rs = null;
     Statement stmt = null;
     try {
-        stmt = __hdbConnection.ourConn.createStatement();
+    	// Legacy code - remove when current code passes tests.
+        //stmt = __hdbConnection.ourConn.createStatement();
+        stmt = getConnection().createStatement();
         if ( __readTimeout >= 0 ) {
             stmt.setQueryTimeout(__readTimeout);
         }
@@ -2196,8 +2258,7 @@ throws SQLException {
         }
     }
     catch (SQLException e) {
-        Message.printWarning(3, routine, "Error getting loading site data types from HDB \"" +
-            getDatabaseName() + "\" (" + e + ")." );
+        Message.printWarning(3, routine, "Error getting loading site data types from HDB \"" + getDatabaseName() + "\" (" + e + ")." );
         Message.printWarning(3, routine, e );
     }
     finally {
@@ -2245,7 +2306,9 @@ throws SQLException {
     Statement stmt = null;
     ReclamationHDB_ObjectType objectType;
     try {
-        stmt = __hdbConnection.ourConn.createStatement();
+    	// Legacy code - remove when current code passes tests.
+        //stmt = __hdbConnection.ourConn.createStatement();
+        stmt = getConnection().createStatement();
         if ( __readTimeout >= 0 ) {
             stmt.setQueryTimeout(__readTimeout);
         }
@@ -2337,8 +2400,7 @@ throws SQLException {
         }
     }
     catch (SQLException e) {
-        Message.printWarning(3, routine, "Error getting site data from HDB \"" +
-            getDatabaseName() + "\" (" + e + ")." );
+        Message.printWarning(3, routine, "Error getting site data from HDB \"" + getDatabaseName() + "\" (" + e + ")." );
         Message.printWarning(3, routine, e );
     }
     finally {
@@ -2363,7 +2425,9 @@ throws SQLException {
     ResultSet rs = null;
     Statement stmt = null;
     try {
-        stmt = __hdbConnection.ourConn.createStatement();
+    	// Legacy code - remove when current code passes tests.
+        //stmt = __hdbConnection.ourConn.createStatement();
+        stmt = getConnection().createStatement();
         if ( __readTimeout >= 0 ) {
             stmt.setQueryTimeout(__readTimeout);
         }
@@ -2523,7 +2587,9 @@ throws SQLException {
     ResultSet rs = null;
     Statement stmt = null;
     try {
-        stmt = __hdbConnection.ourConn.createStatement();
+    	// Legacy code - remove when current code passes tests.
+        //stmt = __hdbConnection.ourConn.createStatement();
+        stmt = getConnection().createStatement();
         if ( __readTimeout >= 0 ) {
             stmt.setQueryTimeout(__readTimeout);
         }
@@ -2539,8 +2605,7 @@ throws SQLException {
         }
     }
     catch (SQLException e) {
-        Message.printWarning(3, routine, "Error getting database parameters data from HDB \"" +
-            getDatabaseName() + "\" (" + e + ")." );
+        Message.printWarning(3, routine, "Error getting database parameters data from HDB \"" + getDatabaseName() + "\" (" + e + ")." );
         Message.printWarning(3, routine, e );
     }
     finally {
@@ -2568,7 +2633,9 @@ throws SQLException {
     ResultSet rs = null;
     Statement stmt = null;
     try {
-        stmt = __hdbConnection.ourConn.createStatement();
+    	// Legacy code - remove when current code passes tests.
+        //stmt = __hdbConnection.ourConn.createStatement();
+        stmt = getConnection().createStatement();
         if ( __readTimeout >= 0 ) {
             stmt.setQueryTimeout(__readTimeout);
         }
@@ -2614,7 +2681,9 @@ throws SQLException {
     ResultSet rs = null;
     Statement stmt = null;
     try {
-        stmt = __hdbConnection.ourConn.createStatement();
+    	// Legacy code - remove when current code passes tests.
+        //stmt = __hdbConnection.ourConn.createStatement();
+        stmt = getConnection().createStatement();
         if ( __readTimeout >= 0 ) {
             stmt.setQueryTimeout(__readTimeout);
         }
@@ -2672,7 +2741,7 @@ throws SQLException {
         "REF_ENSEMBLE.ENSEMBLE_NAME, REF_ENSEMBLE.AGEN_ID, REF_ENSEMBLE.TRACE_DOMAIN, " +
         "REF_ENSEMBLE.CMMNT from REF_ENSEMBLE");
     StringBuilder where = new StringBuilder();
-    if ( (ensembleName != null) && !ensembleName.equals("") ) {
+    if ( (ensembleName != null) && !ensembleName.isEmpty() ) {
         where.append ( " (UPPER(REF_ENSEMBLE.ENSEMBLE_NAME) = '" + ensembleName.toUpperCase() + "')");
     }
     if ( (ensembleIDList != null) && (ensembleIDList.size() > 0) ) {
@@ -2703,7 +2772,9 @@ throws SQLException {
     ResultSet rs = null;
     Statement stmt = null;
     try {
-        stmt = __hdbConnection.ourConn.createStatement();
+    	// Legacy code - remove when current code passes tests.
+        //stmt = __hdbConnection.ourConn.createStatement();
+        stmt = getConnection().createStatement();
         if ( __readTimeout >= 0 ) {
             stmt.setQueryTimeout(__readTimeout);
         }
@@ -2768,7 +2839,9 @@ throws SQLException {
     ResultSet rs = null;
     Statement stmt = null;
     try {
-        stmt = __hdbConnection.ourConn.createStatement();
+    	// Legacy code - remove when current code passes tests.
+        //stmt = __hdbConnection.ourConn.createStatement();
+        stmt = getConnection().createStatement();
         if ( __readTimeout >= 0 ) {
             stmt.setQueryTimeout(__readTimeout);
         }
@@ -2853,7 +2926,9 @@ throws SQLException {
     ResultSet rs = null;
     Statement stmt = null;
     try {
-        stmt = __hdbConnection.ourConn.createStatement();
+    	// Legacy code - remove when current code passes tests.
+        //stmt = __hdbConnection.ourConn.createStatement();
+        stmt = getConnection().createStatement();
         if ( __readTimeout >= 0 ) {
             stmt.setQueryTimeout(__readTimeout);
         }
@@ -2925,38 +3000,38 @@ public List<ReclamationHDB_SiteTimeSeriesMetadata> readSiteTimeSeriesMetadataLis
 throws SQLException {
     StringBuffer whereString = new StringBuffer();
     // Replace ? with . in names - ? is a place-holder because . interferes with TSID specification.
-    if ( (siteCommonName != null) && !siteCommonName.equals("") ) {
+    if ( (siteCommonName != null) && !siteCommonName.isEmpty() ) {
         siteCommonName = siteCommonName.replace('?', '.');
         whereString.append( "(upper(HDB_SITE.SITE_COMMON_NAME) = '" + siteCommonName.toUpperCase() + "')" );
     }
-    if ( (dataTypeCommonName != null) && !dataTypeCommonName.equals("") ) {
+    if ( (dataTypeCommonName != null) && !dataTypeCommonName.isEmpty() ) {
         if ( whereString.length() > 0 ) {
             whereString.append ( " and " );
         }
         whereString.append( "(upper(HDB_DATATYPE.DATATYPE_COMMON_NAME) = '" + dataTypeCommonName.toUpperCase() + "')" );
     }
-    if ( (modelName != null) && !modelName.equals("") ) {
+    if ( (modelName != null) && !modelName.isEmpty() ) {
         modelName = modelName.replace('?', '.');
         if ( whereString.length() > 0 ) {
             whereString.append ( " and " );
         }
         whereString.append( "(upper(HDB_MODEL.MODEL_NAME) = '" + modelName.toUpperCase() + "')" );
     }
-    if ( (modelRunName != null) && !modelRunName.equals("") ) {
+    if ( (modelRunName != null) && !modelRunName.isEmpty() ) {
         modelRunName = modelRunName.replace('?', '.');
         if ( whereString.length() > 0 ) {
             whereString.append ( " and " );
         }
         whereString.append( "(upper(REF_MODEL_RUN.MODEL_RUN_NAME) = '" + modelRunName.toUpperCase() + "')" );
     }
-    if ( (hydrologicIndicator != null) && !hydrologicIndicator.equals("") ) {
+    if ( (hydrologicIndicator != null) && !hydrologicIndicator.isEmpty() ) {
         hydrologicIndicator = hydrologicIndicator.replace('?', '.');
         if ( whereString.length() > 0 ) {
             whereString.append ( " and " );
         }
         whereString.append( "(upper(REF_MODEL_RUN.HYDROLOGIC_INDICATOR) = '" + hydrologicIndicator.toUpperCase() + "')" );
     }
-    if ( (modelRunDate != null) && !modelRunDate.equals("") ) {
+    if ( (modelRunDate != null) && !modelRunDate.isEmpty() ) {
         if ( whereString.length() > 0 ) {
             whereString.append ( " and " );
         }
@@ -3060,7 +3135,7 @@ throws SQLException
     List<ReclamationHDB_SiteTimeSeriesMetadata> results = new ArrayList<>();
     // Form where clauses based on the data type.
     String dataTypeWhereString = "";
-    if ( (dataType != null) && !dataType.equals("") && !dataType.equals("*") ) {
+    if ( (dataType != null) && !dataType.isEmpty() && !dataType.equals("*") ) {
         // Have a data type to consider.  Will either be a data type common name or object name " - " and data type common name.
     	// Note that some HDB data types have "-" but do not seem to have surrounding spaces.
         String dataTypeCommon = dataType;
@@ -3069,8 +3144,7 @@ throws SQLException
             // The common data type is after the object type.
             dataTypeCommon = dataType.substring(pos + 3).trim();
         }
-        Message.printStatus(2, routine, "dataType=\"" + dataType + "\" + dataTypeCommon=\"" +
-            dataTypeCommon + "\"");
+        Message.printStatus(2, routine, "dataType=\"" + dataType + "\" + dataTypeCommon=\"" + dataTypeCommon + "\"");
         dataTypeWhereString = "upper(HDB_DATATYPE.DATATYPE_COMMON_NAME) = '" + dataTypeCommon.toUpperCase() + "'";
     }
 
@@ -3292,7 +3366,9 @@ throws SQLException {
     ResultSet rs = null;
     Statement stmt = null;
     try {
-        stmt = __hdbConnection.ourConn.createStatement();
+    	// Legacy code - remove when current code passes tests.
+        //stmt = __hdbConnection.ourConn.createStatement();
+        stmt = getConnection().createStatement();
         if ( __readTimeout >= 0 ) {
             stmt.setQueryTimeout(__readTimeout);
         }
@@ -3562,7 +3638,7 @@ throws Exception {
     int intervalBase = tsInterval.getBase();
     int intervalMult = tsInterval.getMultiplier();
     // The above will read ensemble trace metadata if model time series is an ensemble.
-    if ( !tsMetadata.getEnsembleTraceDomain().equals("") ) {
+    if ( !tsMetadata.getEnsembleTraceDomain().isEmpty() ) {
         isEnsembleTrace = true;
     }
     List<String> problems = new ArrayList<>();
@@ -3712,7 +3788,9 @@ throws Exception {
         gmtDateFormat.setTimeZone(TimeZone.getTimeZone("GMT"));
         DateFormat localDateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss Z"); // Don't set the time zone.
         try {
-            stmt = __hdbConnection.ourConn.createStatement();
+        	// Legacy code - remove when current code passes tests.
+            //stmt = __hdbConnection.ourConn.createStatement();
+            stmt = getConnection().createStatement();
             if ( __readTimeout >= 0 ) {
                 stmt.setQueryTimeout(__readTimeout);
             }
@@ -3980,8 +4058,7 @@ throws Exception {
             Message.printWarning(3, routine, "Error reading " + tsType + " time series data from HDB for TSID \"" +
                 tsidentString + "\" (" + e + ") SQL:\n" + selectSQL );
             Message.printWarning(3, routine, e );
-            String message = "Error reading " + tsType + " time series data from HDB for TSID \"" +
-                    tsidentString + "\" (" + e + ")";
+            String message = "Error reading " + tsType + " time series data from HDB for TSID \"" + tsidentString + "\" (" + e + ")";
             problems.add(message);
         }
         finally {
@@ -4026,6 +4103,24 @@ public void setDateTimeFromHDBString ( DateTime dateTime, int intervalBase, Stri
     }
     // Instantaneous treat as minute.
     dateTime.setMinute ( Integer.parseInt(dateTimeString.substring(14,16)) );
+}
+
+/**
+Set the Oracle network folder, which is expected to contain the contents of the Oracle network files ("tnsnames.ora", "sqlnet.ora", etc).
+The folder is passed as the TNS_ADMIN connection URL property when connecting to the database.
+@param oracleNetworkFolder Oracle network folder
+*/
+public void setOracleNetworkFolder ( String oracleNetworkFolder ) {
+    this.oracleNetworkFolder = oracleNetworkFolder;
+}
+
+/**
+Set the Oracle Wallet folder, which is expected to contain the contents of the Oracle Wallet files (certificates, etc).
+The folder is passed as a system property when opening the database connection.
+@param oracleWalletFolder Oracle Wallet folder
+*/
+public void setOracleWalletFolder ( String oracleWalletFolder ) {
+    this.oracleWalletFolder = oracleWalletFolder;
 }
 
 /**
@@ -4113,7 +4208,7 @@ private void setTimeSeriesProperties ( TS ts, ReclamationHDB_SiteTimeSeriesMetad
         ts.setProperty("MODEL_RUN_NAME", tsm.getModelRunName());
         ts.setProperty("HYDROLOGIC_INDICATOR", tsm.getHydrologicIndicator());
         ts.setProperty("MODEL_RUN_DATE", tsm.getModelRunDate());
-        if ( tsm.getHydrologicIndicator().equals("") ) {
+        if ( tsm.getHydrologicIndicator().isEmpty() ) {
             ts.setProperty("TableViewHeaderFormat", "%L, ${ts:SITE_COMMON_NAME}, ${ts:DATA_TYPE_COMMON_NAME}, %U");
         }
         else {
@@ -4135,7 +4230,7 @@ private void setTimeSeriesProperties ( TS ts, ReclamationHDB_SiteTimeSeriesMetad
         ts.setProperty("ENSEMBLE_TRACE_NAME", tsm.getEnsembleTraceName() );
         // Table heading is not clear so add Hydrologic Indicator.
         // TODO SAM 2014-04-13 Evaluate whether this needs to be user-defined.
-        if ( tsm.getHydrologicIndicator().equals("") ) {
+        if ( tsm.getHydrologicIndicator().isEmpty() ) {
             ts.setProperty("TableViewHeaderFormat", "%L, ${ts:SITE_COMMON_NAME}, ${ts:DATA_TYPE_COMMON_NAME}, %U");
             ts.setProperty("tsp:LegendFormat", "%L, ${ts:SITE_COMMON_NAME}, ${ts:DATA_TYPE_COMMON_NAME}, %U");
         }
@@ -4530,7 +4625,7 @@ throws SQLException {
     }
     if ( modelRunID == null ) {
         modelRunID = Long.valueOf(-1);
-        if ( (modelName != null) && !modelName.equals("") ) {
+        if ( (modelName != null) && !modelName.isEmpty() ) {
             // Try to get from the parts.
             List<ReclamationHDB_Model> modelList = readHdbModelList(modelName);
             if ( modelList.size() != 1 ) {
@@ -4538,7 +4633,7 @@ throws SQLException {
                     " records in HDB.  Expecting exactly 1.");
             }
             ReclamationHDB_Model model = modelList.get(0);
-            if ( (modelRunName != null) && !modelRunName.equals("") ) {
+            if ( (modelRunName != null) && !modelRunName.isEmpty() ) {
                 DateTime runDate = null;
                 if ( modelRunDate != null ) {
                     runDate = DateTime.parse(modelRunDate);
@@ -4556,7 +4651,7 @@ throws SQLException {
         }
     }
     Integer computeID = null; // Use default.
-    if ( (agency != null) && agency.equals("") ) {
+    if ( (agency != null) && agency.isEmpty() ) {
         // Set to null to use default.
         agency = null;
     }
@@ -4565,15 +4660,15 @@ throws SQLException {
         // Lookup the agency from the abbreviation.
         agenID = lookupAgency(getAgencyList(), agency).getAgenID();
     }
-    if ( (validationFlag != null) && validationFlag.equals("") ) {
+    if ( (validationFlag != null) && validationFlag.isEmpty() ) {
         // Set to null to use default.
         validationFlag = null;
     }
-    if ( (overwriteFlag != null) && overwriteFlag.equals("") ) {
+    if ( (overwriteFlag != null) && overwriteFlag.isEmpty() ) {
         // Set to null to use default.
         overwriteFlag = null;
     }
-    if ( (dataFlags != null) && dataFlags.equals("") ) {
+    if ( (dataFlags != null) && dataFlags.isEmpty() ) {
         // Set to null to use default.
         dataFlags = null;
     }
@@ -5025,7 +5120,7 @@ throws SQLException {
     	computationID = comp.getComputationID();
     }
 
-    if ( (dataFlags != null) && dataFlags.equals("") ) {
+    if ( (dataFlags != null) && dataFlags.isEmpty() ) {
         // Set to null to use default.
         dataFlags = null;
     }
@@ -5055,7 +5150,7 @@ throws SQLException {
     }
     int loadingAppID = loadingApplicationList.get(0).getLoadingApplicationID();
 
-    if ( (overwriteFlag != null) && overwriteFlag.equals("") ) {
+    if ( (overwriteFlag != null) && overwriteFlag.isEmpty() ) {
         // Set to null to use default.
         overwriteFlag = null;
     }
@@ -5077,7 +5172,7 @@ throws SQLException {
     }
     if ( modelRunID == null ) {
         modelRunID = Long.valueOf(-1);
-        if ( (modelName != null) && !modelName.equals("") ) {
+        if ( (modelName != null) && !modelName.isEmpty() ) {
             // Try to get from the parts.
             List<ReclamationHDB_Model> modelList = readHdbModelList(modelName);
             if ( modelList.size() != 1 ) {
@@ -5085,7 +5180,7 @@ throws SQLException {
                     " records in HDB.  Expecting exactly 1.");
             }
             ReclamationHDB_Model model = modelList.get(0);
-            if ( (modelRunName != null) && !modelRunName.equals("") ) {
+            if ( (modelRunName != null) && !modelRunName.isEmpty() ) {
                 DateTime runDate = null;
                 if ( modelRunDate != null ) {
                     runDate = DateTime.parse(modelRunDate);
@@ -5191,7 +5286,7 @@ throws SQLException {
 			"\" cannot be matched with time zone that HDB supports (MST, etc.)." );
     }
 
-    if ( (validationFlag != null) && validationFlag.equals("") ) {
+    if ( (validationFlag != null) && validationFlag.isEmpty() ) {
         // Set to null to use default.
         validationFlag = null;
     }

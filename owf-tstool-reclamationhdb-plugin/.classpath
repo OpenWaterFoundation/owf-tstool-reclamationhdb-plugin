@@ -38,5 +38,6 @@
 		</attributes>
 	</classpathentry>
 	<classpathentry kind="lib" path="/cdss-lib-processor-ts-java/lib/Oracle_JDBC/ojdbc11.jar"/>
+	<classpathentry kind="lib" path="/cdss-lib-processor-ts-java/lib/Oracle_JDBC/oraclepki.jar"/>
 	<classpathentry kind="output" path="target/classes"/>
 </classpath>
