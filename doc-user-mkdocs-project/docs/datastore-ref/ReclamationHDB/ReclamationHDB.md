@@ -4,11 +4,15 @@
 *   [Standard Time Series Properties](#standard-time-series-properties)
 *   [Limitations](#limitations)
 *   [Datastore Configuration File](#datastore-configuration-file)
+    +   [Oracle Wallet Configuration](#oracle-wallet-configuration)
+    +   [Database User Authentication](#database-user-authentication)
+    +   [Database Connection Timeout](#database-connection-timeout)
 *   [Technical Note - Handling Time Zone](#technical-note-handling-time-zone)
 *   [Writing to HDB](#writing-to-hdb)
 *   [Reading from HDB](#reading-from-hdb)
 *   [Examples](#examples)
     +   [Writing State of Colorado Streamflow Station Time Series to HDB](#writing-state-of-colorado-streamflow-station-time-series-to-hdb)
+*   [Troubleshooting](#troubleshooting)
 
 ------------
 
@@ -236,50 +240,157 @@ The following table describes the datastore properties.
 ReclamationHDB Datastore Configuration Parameters
 </p>**
 
-|**Parameter**&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|**Description**|**Default**&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|
-|--|--|--|
-|`Enabled`|Specify whether the datastore should be enabled (`True`) or disabled (`False`).  Disabled datastores will not be initialized for use in TSTool.|`True`|
-|`Type`|Must be `ReclamationHDBDataStore`.|None – must be specified.|
-|`DatabaseEngine`|Indicates database software.  For HDB, it should be `Oracle`.|`Oracle`|
-|`Name`|The name to use for the datastore, which will be displayed in user interfaces and commands.|None – must be specified.|
-|`Description`|A longer description for the datastore, used in interfaces.|None – must be specified.|
-|`DatabaseServer`|The computer name or IP address for the database server.|None – must be specified.|
-|`DatabaseName`|The database name.|None – must be specified.|
-|`DatabasePort`|The port to use for the database connection.|`1521` for Oracle.|
-|`SystemLogin`|The database user account login, which can be one of:<br><ul><li>literal string</li><li>`Env:EnvVariable` – specify using an environment variable named EnvVariable</li><li>`SysProp:JavaRuntimeProperty` – specify using a Java Runtime Environment property named JavaRuntimeProperty</li><li>`Prompt` – a login dialog will be shown after TSTool starts</li></ul>|None – must be specified.|
-|`SystemPassword`|The database user account password. Specify similar to `SystemLogin`.|None – must be specified.|
-|`ConnectTimeout`|The timeout in seconds for the initial database connection.|No limit.|
-|`ReadNHourEndDateTime`|The `WRITE_TO_HDB` stored procedure should allow an end date to be offset from the start date by `NHour`.  However, it appears to always offset by `1Hour`.  Therefore the end date cannot be relied upon for the TSTool date/time when reading.  This property adjusts the handling of the end date:<br><ul><li>`EndDateTime` – use if `WRITE_TO_HDB` does write the end date offset as expected</li><li>`StartDateTimePlusInterval` – use to compensate for `WRITE_TO_HDB` not writing the end_date_time with offset</li></ul>|`StartDateTime`|
-|`PlusIntervalReadTimeout`|The timeout in seconds for query statements.	No limit.|
-|`ResultSetFetchSize`|Specify the number of records returned at a time during query processing.  The default is `10` but higher values increase performance.|`10000`|
-|`TSIDStyle`|Indicates how TSTool should create time series identifiers in the main interface:<br><ul><li>`CommonID` – old style that used common name for identifiers – prone to issues because of non-unique values in HDB and special characters including periods and dashes</li><li>`SDI_MRI` – new style that relies on SDI and MRI integer values, which are guaranteed unique</li></ul>|`SDI_MRI`|
-|`WriteToHDBInsertStatementMax`|Specify the maximum number of rows for a batch insert when writing time series.  A default value of `10000` has been used with success.|`10000`|
+|**Focus** |**Parameter**&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|**Description**|**Default**&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;|
+|--|--|--|--|
+| **General** | `Enabled`|Specify whether the datastore should be enabled (`True`) or disabled (`False`).  Disabled datastores will not be initialized for use in TSTool.|`True`|
+| | `DatabaseEngine`|Indicates database software.  For HDB, it should be `Oracle`.|`Oracle`|
+| |`Name`<br>**required**|The name to use for the datastore, which will be displayed in user interfaces and commands.|None – must be specified.|
+| |`Description`<br>**required**|A longer description for the datastore, used in interfaces.|None – must be specified.|
+| | `Type`<br>**required**|Datastore type to allow TSTool to properly initialize the datastore, must be `ReclamationHDBDataStore`.|None – must be specified.|
+|**Connection** | `ConnectionUrl`| The full connection URL. All other properties that impact the connection URL will be ignored. | Create the connection URL from parts. ||
+| | `ConnectionUrlAppend`| Text to append to the end of the connection URL. The leading delimiter will be added based on the number of parameters that have been added. | |
+| |`ConnectTimeout`|The timeout in seconds for the initial database connection, used to prevent TSTool from hanging. | `300` (5 minutes). |
+| | `DatabaseServer`|The computer name or IP address for the database server.| None – must be specified unless `OracleNetworkFolder` is specified (in which case the `DatabaseName` is the alias in the `tnsnames.ora` file). |
+| |`DatabaseName`<br>**required**|The database name.  If using an Oracle Wallet (see `OracleNetworkFolder`), this is the alias in the `tnsnames.ora` file. See the [Oracle Wallet Configuration](#oracle-wallet-configuration) section below. |None – must be specified.|
+| |`DatabasePort`|The port to use for the database connection.  If using an Oracle Wallet (see `OracleNetworkFolder`), the port is expected to be specified in the `tnsnames.ora` file. |`1521` for Oracle. |
+| |`OracleDriverType` | The Oracle JDBC driver type: <ul><li>`Thin` - currently the only driver that is supported, which uses the `oracle.jdbc.driver.OracleDriver` Java class and `jdbc:oracle:thin:` at the start of the connection URL</li></ul> | `Thin` |
+| |`OracleNetworkFolder`<br>**required** if using Oracle Wallet | The folder containing Oracle Transparent Network Substrate (TNS) files, including the `tnsnames.ora` file. See the [Oracle Wallet Configuration](#oracle-wallet-configuration) section below. | None - required if Oracle Wallet is used. |
+| |`OracleWalletFolder`| The folder containing Oracle Wallet files, including the certificate file. See the [Oracle Wallet Configuration](#oracle-wallet-configuration) section below. | Oracle defaults apply. |
+| |`SystemLogin`**required**|The database user account login, which can be one of:<br><ul><li>literal string</li><li>`Env:EnvVariable` – specify using an environment variable named `EnvVariable`</li><li>`SysProp:JavaSystemProperty` – specify using a Java system property property named JavaSystemProperty</li><li>`Prompt` – a login dialog will be shown after TSTool starts</li></ul> The property value can also be specified using one or more of the following:<ul><li>`${env:EnvVar}` - replace with the matching environment variable</li><li>`${java:SysProp}` - replace with the matching Java system property</li></ul>|None – must be specified.|
+| |`SystemPassword`**required**|The database user account password. Specify similar to `SystemLogin`.|None – must be specified.|
+| **HDB Behavior** |`ReadNHourEndDateTime`|The `WRITE_TO_HDB` stored procedure should allow an end date to be offset from the start date by `NHour`.  However, it appears to always offset by `1Hour`.  Therefore the end date cannot be relied upon for the TSTool date/time when reading.  This property adjusts the handling of the end date:<br><ul><li>`EndDateTime` – use if `WRITE_TO_HDB` does write the end date offset as expected</li><li>`StartDateTimePlusInterval` – use to compensate for `WRITE_TO_HDB` not writing the `end_date_time` with offset</li></ul>|`StartDateTime`<br>`PlusInterval`|
+| |`ReadTimeout`|The timeout in seconds for query statements. | `600` (10 minutes).|
+| |`ResultSetFetchSize`|Specify the number of records returned at a time during query processing.  The default is `10` but higher values increase performance.|`10000`|
+| |`TSIDStyle`|Indicates how TSTool should create time series identifiers in the main interface:<br><ul><li>`CommonID` – old style that used common name for identifiers – prone to issues because of non-unique values in HDB and special characters including periods and dashes</li><li>`SDI_MRI` – new style that relies on SDI and MRI integer values, which are guaranteed unique</li></ul>|`SDI_MRI`|
+| |`WriteToHDBInsert`<br>`StatementMax`|Specify the maximum number of rows for a batch insert when writing time series.  A default value of `10000` has been used with success.|`10000`|
 
-### Database Authentication and Timeouts ###
+### Oracle Wallet Configuration ###
+
+*Last updated: 2026-02-24*
+
+**This documentation is not an authoritative reference for Oracle configuration files but provides information
+to explain how the TSTool plugin implements features for the Reclamation HDB database.**
+
+As of 2026, an Oracle Wallet is required because HDB databases are configured to require TCPS
+(Transmission Control Protocol Secure) or TCPS with TLS (Transport Layer Security).
+Use of a wallet requires defining connection properties and providing data in several files, as follows:
+
+1.  Oracle Net Services are configured by specifying the Transparent Network Substrate (TNS) folder, which contains:
+    *   `tnsnames.ora` - text file that describes Oracle database aliases and configuration data
+    *   `sqlnet.ora` - text file that describes network connection information
+    *   Use the TSTool datastore `OracleNetworkFolder` configuration property to specify the folder,
+        which results in the `TNS_ADMIN` property being defined in the database connection URL.
+        This allows the `tnsnames.ora` file to be found.
+2.  Database alias to use in the `tnsnames.ora` file:
+    *   Use the TSTool datastore configuration property `DatabaseName` to specify the alias,
+        which should match a top-level entry in the `tnsnames.ora` file.
+        This allows additional configuration information for the alias to be found.
+2.  Oracle wallet folder containing:
+    *   `cwallet.sso` - binary file containing private keys and other data for secure login
+    *   `*.cer` - certificate for a specific database alias (see the `SECURITY` section of the `tnsnames.ora` file)
+        to enable an encrypted connection
+    *   Use the TSTool datastore `OracleWalletFolder` configuration property to explicitly specify the folder,
+        which results in the `oracle.net.wallet_location` being added to the connection URL.
+        See the information below to understand how the Google Wallet folder is determined,
+        in cases where `OracleWalletFolder` is not provided to TSTool as a datastore configuration property.
+
+The following is the order that is used by Oracle software to resolve the wallet folder location.
+TSTool uses the first option
+
+1.  `oaracle.net.wallet_location=OracleWalletFolder` connection URL property,
+    which will be set if the `OracleWalletFolder` datastore configuration property is specified.
+2.  Explicit JDBC connection properties set with the Java `oracle.net.wallet_location` connection property.
+    TSTool currently does not provide this as an option because the above option is avaialble in JDBC driver version 21+.
+3.  Java system properties (it is possible to set the Java run-time property in the Linux `tstool` script with
+    `-Doracle.net.wallet_location=folder` but the above options are more flexibile because it involves using the datastore configuration file
+    without editing the `tstool` script).
+4.  `tnsnames.ora` file `SECURITY` section `WALLET_LOCATION` property
+    (TSTool uses the `OracleNetworkFolder` datastore property to set the `TNS_ADMIN` property in the connection URL,
+    which indicates the folder for the `tnsnames.ora` file).
+5.  `sqlnet.ora` file `WALLET_LOCATION` property.
+6.  `TNS_ADMIN` folder location.
+
+The above flexibility allows the `OracleNetworkFolder` (location of `tnsnames.ora`)
+and `OracleWalletFolder` (location of `*.sso` and `*.cer` files) to be the same folder or different folders.
+
+The following example `tnsnames.ora` file illustrates how to implement a Google Wallet configuration.
+
+```
+# TSTool example for an encrypted connection:
+# - this uses a Google Wallet location specified in the TSTool datastore configuration file
+# - use the 'OracleNetworkFolder' TSTool datastore configuration property
+#   to specify the folder for the 'tnsnames.ora' file
+# - the wallet location is not specified in this file so either rely on Oracle
+#   defaults or specify with the 'OracleWalletFolder' TSTool datastore
+#   configuration file
+# - use the 'DatabaseName' TSTool datastore configuration property to specify
+#   the database alias ('FREEPDBS' in this case)
+FREEPDBS =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCPS)(HOST = XXX.domain.com)(PORT = 2484))
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = FREEPDB1)
+    )
+    (SECURITY =
+      (SSL_SERVER_CERT_DN = "CN=testdb,O=PWRE,L=Loveland,C=US")
+    )
+  )
+
+# TSTool example for an encrypted connection:
+# - this uses a Google Wallet location specified in this 'tnsnames.ora' file
+# - use the 'OracleNetworkFolder' TSTool datastore configuration property
+#   to specify the folder for the 'tnsnames.ora' file
+# - the wallet location is specified in this file using the 'WALLET_LOCATION'
+#   property in the 'SECURITY' section below
+# - use the 'DatabaseName' TSTool datastore configuration property to specify
+#   the database alias ('FREEPDBW' in this case)
+FREEPDBW =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCPS)(HOST = XXX.domain.com)(PORT = 2484))
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = FREEPDB1)
+    )
+    (SECURITY =
+      (WALLET_LOCATION = C:\Users\XXX\AppData\Local\TSTool\ReclamationHDB\wallet)
+      (SSL_SERVER_CERT_DN = "CN=testdb,O=PWRE,L=Loveland,C=US")
+    )
+  )
+
+# TSTool example for an unencrypted connection:
+# - this does not use Google Wallet in any way
+# - use the 'OracleNetworkFolder' TSTool datastore configuration property
+#   to specify the folder for the 'tnsnames.ora' file
+# - use the 'DatabaseName' TSTool datastore configuration property to specify
+#   the database alias ('FREEPDB1' in this case)
+FREEPDB1 =
+  (DESCRIPTION =
+    (ADDRESS = (PROTOCOL = TCP)(HOST = XXX.domain.com)(PORT = 1521))
+    (CONNECT_DATA =
+      (SERVER = DEDICATED)
+      (SERVICE_NAME = FREEPDB1)
+    )
+  )
+```
+
+### Database User Authentication ###
 
 The `SystemLogin` and `SystemPassword` datastore configuration parameters are used to authenticate the database user.
 If either are set to `Prompt` in the configuration file, then the following dialog will be shown when TSTool starts.
 
 **<p style="text-align: center;">
-![ReclamationHDB Datastore Login Dialog for Initial Login](ReclamationHDB_login.png)
+![ReclamationHDB Datastore Login Dialog](ReclamationHDB_login.png)
 </p>**
 
 **<p style="text-align: center;">
-ReclamationHDB Datastore Login Dialog for Initial Login (<a href="../ReclamationHDB_login.png">see full-size image</a>)
+ReclamationHDB Datastore Login Dialog (<a href="../ReclamationHDB_login.png">see full-size image</a>)
 </p>**
 
 Only the login and password can be specified.
 If necessary, change the datastore configuration file to change other parameter values.
-After TSTool starts, the ***File / Open / Reclamation HDB*** menu can be
-used to change a datastore login to a different account, as shown below:
 
-**<p style="text-align: center;">
-![ReclamationHDB Datastore Login Dialog after Startup](ReclamationHDB_login2.png)
-</p>**
-
-**<p style="text-align: center;">
-ReclamationHDB Datastore Login Dialog after Startup (<a href="../ReclamationHDB_login2.png">see full-size image</a>)
-</p>**
+### Database Connection Timeout ###
 
 HDB database connections can timeout or drop.
  TSTool checks the connection at key points, including TSTool setup,
@@ -598,3 +709,11 @@ The following are technical considerations:
     *   [`ReadTimeSeriesList`](https://opencdss.state.co.us/tstool/latest/doc-user/command-ref/ReadTimeSeriesList/ReadTimeSeriesList/) - to read a list of time series given a table of identifier information
     *   [`For`](https://opencdss.state.co.us/tstool/latest/doc-user/command-ref/For/For/) - loop over commands, which avoids the need to expand a template command file,
         for example to loop over the time series listed in a table, to write to HDB
+
+## Troubleshooting ##
+
+For generation troubleshooting, use the following resources:
+
+1.  Use the TSTool ***View / Datastores*** menu to check whether the database connection was successful.
+2.  Use the TSTool ***Tools / Plugin Manager*** menu to check whether the plugin is loading as expected.
+3.  Use the TSTool ***Tools*** menu to open the startup and active log file, or use a text editor to view a log file.

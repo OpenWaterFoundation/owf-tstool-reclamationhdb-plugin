@@ -18,6 +18,7 @@ See the following sections in this page:
 *   [Repository Dependencies](#repository-dependencies)
 *   [Adding to TSTool Eclipse Workspace](#adding-to-tstool-eclipse-workspace)
 *   [Building the Plugin Jar File](#building-the-plugin-jar-file)
+*   [Testing](#testing)
 *   [Building an Installer](#building-an-installer)
 *   [Contributing](#contributing)
 *   [License](#license)
@@ -118,6 +119,12 @@ During development, plugins are handled as follows:
     3.  The above script relies on the `owf-tstool-reclamationhdb-plugin/src/main/resources/META-INF/MANIFEST.MF`
         file to provide information about the plugin to TSTool,
         including the list of plugin commands and third-party `jar` files that are used by the plugin.
+
+## Testing ##
+
+As of 2026, testing uses an Amazon Web Services (AWS) server provided by Precision Water Resources Engineering (PWRE).
+The server is shut down unless needed for development.
+Database credentials and server credentials are provided by PWRE.
 
 ## Building an Installer ##
 

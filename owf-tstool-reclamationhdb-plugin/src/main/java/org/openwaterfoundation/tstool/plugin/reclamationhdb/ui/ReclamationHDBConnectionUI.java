@@ -4,7 +4,7 @@
 
 CDSS Time Series Processor Java Library
 CDSS Time Series Processor Java Library is a part of Colorado's Decision Support Systems (CDSS)
-Copyright (C) 1994-2025 Colorado Department of Natural Resources
+Copyright (C) 1994-2026 Colorado Department of Natural Resources
 
 CDSS Time Series Processor Java Library is free software:  you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -133,7 +133,7 @@ public ReclamationHDBConnectionUI ( ReclamationHDBDataStoreFactory factory, List
 	super(parent, true); // This is important - it prevents the main UI from continuing.
 	this.factory = factory;
 	if ( datastoreList == null ) {
-		datastoreList = new ArrayList<ReclamationHDBDataStore>();
+		datastoreList = new ArrayList<>();
 	}
 	this.datastoreProps = null;
 	this.datastoreList = datastoreList;
@@ -228,7 +228,7 @@ private void initUI() {
 	JGUIUtil.addComponent(northJPanel, new JLabel("Datastore:"),
     	0, ++y, 1, 1, 0, 0, LTB_insets, GridBagConstraints.NONE, GridBagConstraints.EAST);
 	this.nameJComboBox = new SimpleJComboBox(false);
-	List<String> names = new ArrayList<String>();
+	List<String> names = new ArrayList<>();
     if ( this.editingSingle ) {
     	// Add the single name.
         names.add(this.datastoreProps.getValue("Name"));
@@ -246,6 +246,8 @@ private void initUI() {
     this.nameJComboBox.addItemListener(this);
     JGUIUtil.addComponent(northJPanel, this.nameJComboBox,
 		1, y, 1, 1, 0, 0, RTB_insets, GridBagConstraints.NONE, GridBagConstraints.WEST);
+	JGUIUtil.addComponent(northJPanel, new JLabel("Name from a Reclamation HDB datastore configuration file."),
+    	2, y, 1, 1, 0, 0, LTB_insets, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
 	// Description.
     JGUIUtil.addComponent(northJPanel, new JLabel("Description:"),
@@ -255,6 +257,8 @@ private void initUI() {
     setDescription();
     JGUIUtil.addComponent(northJPanel, this.descriptionJTextField,
 		1, y, 1, 1, 0, 0, RTB_insets, GridBagConstraints.HORIZONTAL, GridBagConstraints.WEST);
+	JGUIUtil.addComponent(northJPanel, new JLabel("Description for display."),
+    	2, y, 1, 1, 0, 0, LTB_insets, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
 	// Server.
     JGUIUtil.addComponent(northJPanel, new JLabel("Server:"),
@@ -265,6 +269,8 @@ private void initUI() {
 	//this.loginJTextField.addKeyListener(this);
     JGUIUtil.addComponent(northJPanel, this.serverJTextField,
 		1, y, 1, 1, 0, 0, RTB_insets, GridBagConstraints.NONE, GridBagConstraints.WEST);
+	JGUIUtil.addComponent(northJPanel, new JLabel("Omit if using a 'tnsnames.ora' file."),
+    	2, y, 1, 1, 0, 0, LTB_insets, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
 	// Database.
     JGUIUtil.addComponent(northJPanel, new JLabel("Database:"),
@@ -275,6 +281,8 @@ private void initUI() {
     setDatabase();
     JGUIUtil.addComponent(northJPanel, this.databaseJTextField,
 		1, y, 1, 1, 0, 0, RTB_insets, GridBagConstraints.NONE, GridBagConstraints.WEST);
+	JGUIUtil.addComponent(northJPanel, new JLabel("Database alias if using a 'tnsnames.ora' file."),
+    	2, y, 1, 1, 0, 0, LTB_insets, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
 	// Login.
     JGUIUtil.addComponent(northJPanel, new JLabel("Login:"),
@@ -284,6 +292,8 @@ private void initUI() {
 	setLogin();
     JGUIUtil.addComponent(northJPanel, this.loginJTextField,
 		1, y, 1, 1, 0, 0, RTB_insets, GridBagConstraints.NONE, GridBagConstraints.WEST);
+	JGUIUtil.addComponent(northJPanel, new JLabel("See the datastore documentation for options."),
+    	2, y, 1, 1, 0, 0, LTB_insets, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
 	// Password.
     JGUIUtil.addComponent(northJPanel, new JLabel("Password:"),
@@ -295,8 +305,10 @@ private void initUI() {
 	//passwordJPasswordField.addKeyListener(this);
 	JGUIUtil.addComponent(northJPanel, this.passwordJPasswordField,
 		1, y, 1, 1, 0, 0, RTB_insets, GridBagConstraints.NONE, GridBagConstraints.WEST);
+	JGUIUtil.addComponent(northJPanel, new JLabel("See the datastore documentation for options."),
+    	2, y, 1, 1, 0, 0, LTB_insets, GridBagConstraints.NONE, GridBagConstraints.WEST);
 
-	// South JPanel.
+	// Bottom panel for buttons and message area.
 	JPanel southJPanel = new JPanel();
 	southJPanel.setLayout(new BorderLayout());
 	getContentPane().add("South", southJPanel);
